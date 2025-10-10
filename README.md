@@ -18,11 +18,19 @@ Setup
 - npm i
 - npm run build
 
-Example
-import { PolicyEngine, MemoryCounterStore } from './dist/index.js'
+Examples
+- node examples/basic.mjs
+- node examples/basic_from_json.mjs
 
-const policy = { allowlist:[{chainId:8453,to:'0x..',selector:'0x..'}], caps:{max_outflow_h1:'1000000'} };
-const engine = new PolicyEngine(new MemoryCounterStore());
-engine.loadPolicy(policy, '0xhash');
-const dec = await engine.evaluate({chainId:8453,to:'0x..',selector:'0x..',denomination:'BASE_USDC',amount:'500'});
-if (dec.action==='allow') await engine.recordExecution({intent:{...}, txHash:'0x1'});
+CLI (after build)
+- policy-simulate <policy.json> <intent.json>
+- policy-status
+
+Example intent.json
+{
+  "chainId": 8453,
+  "to": "0x0000000000000000000000000000000000000001",
+  "selector": "0xaaaaaaaa",
+  "denomination": "BASE_USDC",
+  "amount": "500"
+}

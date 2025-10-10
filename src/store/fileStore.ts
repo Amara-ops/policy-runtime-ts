@@ -1,5 +1,5 @@
 import type { CounterStore, CounterWindow } from '../types.js';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 function bucketStart(now: number, windowMs: number): number {
@@ -36,7 +36,14 @@ export class FileCounterStore implements CounterStore {
     }
     const tmp = this.filePath + '.tmp';
     writeFileSync(tmp, JSON.stringify(out));
-    writeFileSync(this.filePath, JSON.stringify(out)); // simple fallback if rename not desired
+    try {
+      // Attempt atomic replace
+      renameSync(tmp, this.filePath);
+    } catch (e) {
+      // Windows may not allow overwrite; fallback to rm then rename
+      try { rmSync(this.filePath, { force: true }); } catch {}
+      renameSync(tmp, this.filePath);
+    }
   }
 
   async persist(): Promise<void> { this.flush(); }
