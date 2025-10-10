@@ -1,0 +1,27 @@
+{
+  "name": "policy-runtime-ts",
+  "version": "0.0.1",
+  "description": "Minimal policy runtime engine for agent treasury guardrails (allowlist, pause, caps, JSONL logging)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "policy-simulate": "dist/cli/simulate.js",
+    "policy-status": "dist/cli/status.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --passWithNoTests",
+    "test:type": "tsc -p tsconfig.jest.json"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.2"
+  },
+  "license": "MIT"
+}

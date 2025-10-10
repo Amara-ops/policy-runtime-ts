@@ -1,0 +1,7 @@
+{
+  "allowlist": [
+    { "chainId": 8453, "to": "0x0000000000000000000000000000000000000001", "selector": "0xaaaaaaaa" }
+  ],
+  "caps": { "max_outflow_h1": "1000", "max_outflow_d1": "2000" },
+  "pause": false
+}
