@@ -22,9 +22,13 @@ Examples
 - node examples/basic.mjs
 - node examples/basic_from_json.mjs
 
+HTTP sidecar example
+- npm run serve
+  - Starts on http://127.0.0.1:8787 using examples/policy.sample.json
+
 CLI (after build)
-- policy-simulate <policy.json> <intent.json>
-- policy-status
+- npm run cli:simulate -- examples/policy.sample.json examples/intent.sample.json
+- npm run cli:status
 
 Example intent.json
 {

@@ -1,0 +1,7 @@
+{
+  "chainId": 8453,
+  "to": "0x0000000000000000000000000000000000000001",
+  "selector": "0xaaaaaaaa",
+  "denomination": "BASE_USDC",
+  "amount": "500"
+}

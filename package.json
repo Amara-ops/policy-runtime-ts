@@ -12,7 +12,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --passWithNoTests",
-    "test:type": "tsc -p tsconfig.jest.json"
+    "test:type": "tsc -p tsconfig.jest.json",
+    "serve": "node examples/http_server.mjs",
+    "cli:simulate": "node dist/cli/simulate.js",
+    "cli:status": "node dist/cli/status.js"
   },
   "dependencies": {
     "ajv": "^8.17.1"
