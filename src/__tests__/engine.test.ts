@@ -8,7 +8,7 @@ const basePolicy = {
   allowlist: [
     { chainId: 8453, to: '0x0000000000000000000000000000000000000001', selector: '0xaaaaaaaa' }
   ],
-  caps: { max_outflow_h1: '1000', max_outflow_d1: '2000' },
+  caps: { max_outflow_h1: '1000', max_outflow_d1: '2000', max_per_function_h1: 2 },
   pause: false
 };
 
@@ -58,4 +58,21 @@ test('allow within caps, then deny when exceeding h1', async () => {
   const r3 = await eng.evaluate(intent, now);
   expect(r3.action).toBe('deny');
   expect(r3.reasons).toContain('CAP_H1_EXCEEDED');
+});
+
+test('per-function rate cap: allow twice then deny on third within 1h', async () => {
+  const store = new MemoryCounterStore();
+  const eng = new PolicyEngine(store);
+  eng.loadPolicy(basePolicy, phash());
+  const now = Date.now();
+
+  const i = { ...intent, amount: '1' };
+  for (let n = 0; n < 2; n++) {
+    const r = await eng.evaluate(i, now);
+    expect(r.action).toBe('allow');
+    await eng.recordExecution({ intent: i, txHash: '0x0' + (n + 1) }, now);
+  }
+  const r3 = await eng.evaluate(i, now);
+  expect(r3.action).toBe('deny');
+  expect(r3.reasons).toContain('CAP_PER_FUNCTION_H1_EXCEEDED');
 });

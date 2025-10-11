@@ -6,6 +6,7 @@ Features (v0)
 - Allowlist (chainId, to, selector)
 - Global pause
 - Caps: max_outflow_h1, max_outflow_d1 (single denomination: BASE_USDC)
+- Per-function rate cap: max_per_function_h1 (optional, count per selector per hour)
 - JSONL audit logging (append-only)
 
 API
@@ -36,6 +37,9 @@ HTTP endpoints
 CLI (after build)
 - npm run cli:simulate -- examples/policy.sample.json examples/intent.sample.json
 - npm run cli:status
+
+Policy additions (v0.2)
+- caps.max_per_function_h1: integer >= 1; applies per selector per hour window
 
 Example intent.json
 {

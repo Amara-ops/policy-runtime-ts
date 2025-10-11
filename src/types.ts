@@ -9,6 +9,7 @@ export interface AllowEntry {
 export interface CapsConfig {
   max_outflow_h1?: string; // bigint as decimal string in base units
   max_outflow_d1?: string; // bigint as decimal string in base units
+  max_per_function_h1?: number; // optional count cap per selector per hour
 }
 
 export interface PolicyMeta {
@@ -36,6 +37,7 @@ export type DecisionAction = 'allow' | 'deny' | 'escalate';
 export interface DecisionHeadroom {
   h1?: string; // remaining in base units
   d1?: string;
+  per_fn_h1?: number; // remaining count
 }
 
 export interface Decision {

@@ -42,7 +42,8 @@ export function validatePolicy(policy: unknown): Policy {
         additionalProperties: false,
         properties: {
           max_outflow_h1: { type: 'string', pattern: '^[0-9]+$' },
-          max_outflow_d1: { type: 'string', pattern: '^[0-9]+$' }
+          max_outflow_d1: { type: 'string', pattern: '^[0-9]+$' },
+          max_per_function_h1: { type: 'integer', minimum: 1 }
         }
       },
       pause: { type: 'boolean' },

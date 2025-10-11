@@ -37,8 +37,10 @@ export class PolicyEngine {
 
     const h1 = this.policy.caps?.max_outflow_h1 ? BigInt(this.policy.caps.max_outflow_h1) : undefined;
     const d1 = this.policy.caps?.max_outflow_d1 ? BigInt(this.policy.caps.max_outflow_d1) : undefined;
+    const perFnH1 = this.policy.caps?.max_per_function_h1;
 
     let h1Used = 0n, d1Used = 0n;
+    let perFnUsed = 0;
 
     if (h1 !== undefined) {
       const w = await this.store.getWindow(key(this.policyHash, denom + ':h1'), HOUR_MS, now);
@@ -50,18 +52,24 @@ export class PolicyEngine {
       d1Used = w.used + amt;
       if (d1Used > d1) reasons.push('CAP_D1_EXCEEDED');
     }
+    if (perFnH1 !== undefined) {
+      const w = await this.store.getWindow(key(this.policyHash, `fn:${intent.selector}:h1`), HOUR_MS, now);
+      perFnUsed = Number(w.used) + 1;
+      if (perFnUsed > perFnH1) reasons.push('CAP_PER_FUNCTION_H1_EXCEEDED');
+    }
 
     if (reasons.length) {
-      await this.logDecision({ intent, now, decision: 'deny', reasons, counters: { h1_used: h1Used?.toString(), d1_used: d1Used?.toString() } });
+      await this.logDecision({ intent, now, decision: 'deny', reasons, counters: { h1_used: h1Used?.toString(), d1_used: d1Used?.toString(), per_fn_h1_used: perFnUsed } });
       return { action: 'deny', reasons };
     }
 
     const headroom = {
       h1: h1 !== undefined ? (h1 - h1Used).toString() : undefined,
-      d1: d1 !== undefined ? (d1 - d1Used).toString() : undefined
+      d1: d1 !== undefined ? (d1 - d1Used).toString() : undefined,
+      per_fn_h1: perFnH1 !== undefined ? Math.max(0, perFnH1 - perFnUsed) : undefined
     };
 
-    await this.logDecision({ intent, now, decision: 'allow', reasons: [], counters: { h1_used: h1Used.toString(), d1_used: d1Used.toString() }, headroom });
+    await this.logDecision({ intent, now, decision: 'allow', reasons: [], counters: { h1_used: h1Used.toString(), d1_used: d1Used.toString(), per_fn_h1_used: perFnUsed }, headroom });
     return { action: 'allow', reasons: [], headroom };
   }
 
@@ -75,6 +83,9 @@ export class PolicyEngine {
     if (this.policy.caps?.max_outflow_d1) {
       await this.store.add(key(this.policyHash, denom + ':d1'), amt, DAY_MS, now);
     }
+    if (this.policy.caps?.max_per_function_h1) {
+      await this.store.add(key(this.policyHash, `fn:${meta.intent.selector}:h1`), 1n, HOUR_MS, now);
+    }
 
     if (this.logger) {
       await this.logger.append({ ts: now, type: 'execution', policyHash: this.policyHash, intent: meta.intent, txHash: meta.txHash, amount: amt.toString() });
@@ -85,7 +96,7 @@ export class PolicyEngine {
     this.policy.pause = paused;
   }
 
-  private async logDecision(args: { intent: Intent; now: number; decision: 'allow'|'deny'|'escalate'; reasons: string[]; counters?: { h1_used?: string; d1_used?: string }; headroom?: { h1?: string; d1?: string } }) {
+  private async logDecision(args: { intent: Intent; now: number; decision: 'allow'|'deny'|'escalate'; reasons: string[]; counters?: { h1_used?: string; d1_used?: string; per_fn_h1_used?: number }; headroom?: { h1?: string; d1?: string; per_fn_h1?: number } }) {
     if (!this.logger) return;
     const { intent, now, decision, reasons, counters, headroom } = args;
     const id = makeOpId(this.policyHash, intent);
