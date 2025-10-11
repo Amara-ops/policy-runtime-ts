@@ -1,5 +1,7 @@
 ## Policy Runtime TS
 
+[![CI](https://github.com/Amara-ops/policy-runtime-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/Amara-ops/policy-runtime-ts/actions/workflows/ci.yml)
+
 ## What it is (plain English)
 This is a small runtime that enforces guardrails for agent treasuries while they execute transactions. Think of it as a lightweight circuit‑breaker: you describe what is allowed (addresses/functions), whether the system can be paused, and how much can flow out per hour/day. The runtime answers “allow” or “deny” for a requested action, and keeps append‑only logs so you can audit decisions and usage over time.
 
