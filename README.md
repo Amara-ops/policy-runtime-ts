@@ -27,6 +27,12 @@ HTTP sidecar example
   - Starts on http://127.0.0.1:8787 using examples/policy.sample.json
   - CLI uses same data/log paths and the same policy hash (computed from policy), so counters are shared
 
+HTTP endpoints
+- POST /evaluate { intent }
+- POST /record { intent, txHash, amount? }
+- POST /pause { paused: boolean }
+- POST /execute { intent, txHash? }  // evaluate then, if allow, record
+
 CLI (after build)
 - npm run cli:simulate -- examples/policy.sample.json examples/intent.sample.json
 - npm run cli:status

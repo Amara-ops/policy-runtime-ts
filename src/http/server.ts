@@ -37,6 +37,16 @@ export async function startServer(opts?: { port?: number; policy: any; policyHas
         res.end();
         return;
       }
+      if (req.method === 'POST' && req.url === '/execute') {
+        const body = await readJson(req);
+        const dec = await engine.evaluate(body.intent);
+        if (dec.action === 'allow') {
+          await engine.recordExecution({ intent: body.intent, txHash: body.txHash || '0x' + Math.random().toString(16).slice(2) });
+        }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(dec));
+        return;
+      }
       res.writeHead(404);
       res.end();
     } catch (e: any) {

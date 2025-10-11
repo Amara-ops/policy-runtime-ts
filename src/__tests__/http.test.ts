@@ -27,7 +27,7 @@ function req(method: string, path: string, body?: any): Promise<{ status: number
   });
 }
 
-it('HTTP server evaluate/record/pause', async () => {
+it('HTTP server evaluate/record/pause/execute', async () => {
   const { server } = await startServer({ port: 8789, policy, policyHash: '0x' + 'ee'.repeat(32) });
   try {
     const intent = { chainId: 8453, to: '0x0000000000000000000000000000000000000001', selector: '0xaaaaaaaa', denomination: 'BASE_USDC', amount: '600' };
@@ -40,6 +40,10 @@ it('HTTP server evaluate/record/pause', async () => {
 
     const b = await req('POST', '/evaluate', { intent });
     expect(b.json.action).toBe('deny');
+
+    const ex = await req('POST', '/execute', { intent });
+    expect(ex.status).toBe(200);
+    expect(ex.json.action).toBe('deny');
 
     await req('POST', '/pause', { paused: true });
     const c = await req('POST', '/evaluate', { intent });
