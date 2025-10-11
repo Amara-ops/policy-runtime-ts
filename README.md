@@ -25,6 +25,7 @@ Examples
 HTTP sidecar example
 - npm run serve
   - Starts on http://127.0.0.1:8787 using examples/policy.sample.json
+  - CLI uses same data/log paths and the same policy hash (computed from policy), so counters are shared
 
 CLI (after build)
 - npm run cli:simulate -- examples/policy.sample.json examples/intent.sample.json

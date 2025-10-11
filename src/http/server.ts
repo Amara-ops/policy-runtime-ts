@@ -1,10 +1,11 @@
 import http from 'node:http';
 import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../index.js';
+import { computePolicyHash } from '../util/policyHash.js';
 
-export async function startServer(opts?: { port?: number; policy: any; policyHash: string }) {
+export async function startServer(opts?: { port?: number; policy: any; policyHash?: string }) {
   const port = opts?.port ?? 8787;
   const policy = opts?.policy;
-  const policyHash = opts?.policyHash ?? '0x' + 'dd'.repeat(32);
+  const policyHash = opts?.policyHash ?? computePolicyHash(policy);
   if (!policy) throw new Error('policy required');
 
   const store = new FileCounterStore('./data/counters.json');
