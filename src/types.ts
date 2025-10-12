@@ -14,8 +14,8 @@ export interface CapsConfig {
   max_per_function_h1?: number; // optional count cap per selector per hour
   // v0.3 additions (optional, backward-compatible)
   per_target?: {
-    h1?: Record<string, string>; // key = to or to|selector, value bigint decimal
-    d1?: Record<string, string>;
+    h1?: Record<string, CapAmount>; // key = to or to|selector, value CapAmount (string or per-denom map)
+    d1?: Record<string, CapAmount>;
   };
 }
 

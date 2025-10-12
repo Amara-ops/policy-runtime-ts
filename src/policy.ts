@@ -41,15 +41,15 @@ export function validatePolicy(policy: unknown): Policy {
         type: 'object',
         additionalProperties: true,
         properties: {
-          max_outflow_h1: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] },
-          max_outflow_d1: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] },
+          max_outflow_h1: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } } ] },
+          max_outflow_d1: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } } ] },
           max_per_function_h1: { type: 'integer', minimum: 1 },
           per_target: {
             type: 'object',
             additionalProperties: false,
             properties: {
-              h1: { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } },
-              d1: { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } }
+              h1: { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } },
+              d1: { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } }
             }
           }
         }

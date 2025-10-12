@@ -12,7 +12,11 @@ function resolveCap(cap: CapAmount | undefined, denom: string): bigint | undefin
   if (cap === undefined) return undefined;
   if (typeof cap === 'string') return BigInt(cap);
   const v = cap[denom];
-  return v !== undefined ? BigInt(v) : undefined;
+  if (v === undefined) return undefined;
+  if (typeof v === 'string') return BigInt(v);
+  const nested = v as Record<string, string>;
+  const nv = nested[denom];
+  return nv !== undefined ? BigInt(nv) : undefined;
 }
 
 export class PolicyEngine {
@@ -67,24 +71,28 @@ export class PolicyEngine {
       if (perFnUsed > perFnH1) reasons.push('CAP_PER_FUNCTION_H1_EXCEEDED');
     }
 
-    // v0.3: Per-target caps
+    // v0.3: Per-target caps; values can be string or per-denom map
     const perTarget = this.policy.caps?.per_target;
     if (perTarget?.h1) {
-      const k = perTarget.h1[intent.to] ?? perTarget.h1[`${intent.to}|${intent.selector}`];
-      if (k) {
-        const lim = BigInt(k);
-        const w = await this.store.getWindow(key(this.policyHash, `to:${intent.to}:h1`), HOUR_MS, now);
-        const used = w.used + amt;
-        if (used > lim) reasons.push('CAP_TARGET_H1_EXCEEDED');
+      const raw = perTarget.h1[intent.to] ?? perTarget.h1[`${intent.to}|${intent.selector}`];
+      if (raw) {
+        const lim = resolveCap(raw, denom);
+        if (lim !== undefined) {
+          const w = await this.store.getWindow(key(this.policyHash, `to:${intent.to}:h1`), HOUR_MS, now);
+          const used = w.used + amt;
+          if (used > lim) reasons.push('CAP_TARGET_H1_EXCEEDED');
+        }
       }
     }
     if (perTarget?.d1) {
-      const k = perTarget.d1[intent.to] ?? perTarget.d1[`${intent.to}|${intent.selector}`];
-      if (k) {
-        const lim = BigInt(k);
-        const w = await this.store.getWindow(key(this.policyHash, `to:${intent.to}:d1`), DAY_MS, now);
-        const used = w.used + amt;
-        if (used > lim) reasons.push('CAP_TARGET_D1_EXCEEDED');
+      const raw = perTarget.d1[intent.to] ?? perTarget.d1[`${intent.to}|${intent.selector}`];
+      if (raw) {
+        const lim = resolveCap(raw, denom);
+        if (lim !== undefined) {
+          const w = await this.store.getWindow(key(this.policyHash, `to:${intent.to}:d1`), DAY_MS, now);
+          const used = w.used + amt;
+          if (used > lim) reasons.push('CAP_TARGET_D1_EXCEEDED');
+        }
       }
     }
 
@@ -116,10 +124,11 @@ export class PolicyEngine {
     if (this.policy.caps?.max_per_function_h1) {
       await this.store.add(key(this.policyHash, `fn:${meta.intent.selector}:h1`), 1n, HOUR_MS, now);
     }
-    if (this.policy.caps?.per_target?.h1?.[meta.intent.to] || this.policy.caps?.per_target?.h1?.[`${meta.intent.to}|${meta.intent.selector}`]) {
+    const perTarget = this.policy.caps?.per_target;
+    if (perTarget?.h1?.[meta.intent.to] || perTarget?.h1?.[`${meta.intent.to}|${meta.intent.selector}`]) {
       await this.store.add(key(this.policyHash, `to:${meta.intent.to}:h1`), amt, HOUR_MS, now);
     }
-    if (this.policy.caps?.per_target?.d1?.[meta.intent.to] || this.policy.caps?.per_target?.d1?.[`${meta.intent.to}|${meta.intent.selector}`]) {
+    if (perTarget?.d1?.[meta.intent.to] || perTarget?.d1?.[`${meta.intent.to}|${meta.intent.selector}`]) {
       await this.store.add(key(this.policyHash, `to:${meta.intent.to}:d1`), amt, DAY_MS, now);
     }
 
