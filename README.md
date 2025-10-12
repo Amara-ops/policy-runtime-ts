@@ -62,8 +62,8 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 ## Example intent.json
 {
   "chainId": 8453,
-  "to": "0x0000000000000000000000000000000000000001",
-  "selector": "0xaaaaaaaa",
+  "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "selector": "0xa9059cbb",
   "denomination": "BASE_USDC",
   "amount": "500"
 }
