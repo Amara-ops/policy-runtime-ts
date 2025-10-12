@@ -19,8 +19,8 @@ const policy = {
     max_outflow_h1: { BASE_USDC: '1000', BASE_ETH: '100000000000000000' },
     max_outflow_d1: { BASE_USDC: '2000', BASE_ETH: '200000000000000000' },
     per_target: {
-      h1: { '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': '800' },
-      d1: { '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913|0xa9059cbb': '1500' }
+      h1: { '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { BASE_USDC: '800' } },
+      d1: { '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913|0xa9059cbb': { BASE_USDC: '1500' } }
     }
   },
   pause: false
