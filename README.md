@@ -12,8 +12,9 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 ## Features
 - Allowlist (chainId, to, selector)
 - Global pause
-- Caps: max_outflow_h1, max_outflow_d1 (single denomination: BASE_USDC)
+- Caps: max_outflow_h1, max_outflow_d1 (per-denomination; default BASE_USDC)
 - Per-function rate cap: max_per_function_h1 (optional, count per selector per hour)
+- Per-target caps (optional): caps.per_target.{h1,d1} keyed by to or to|selector
 - JSONL audit logging (append-only)
 
 ## Intent model (quick note)
@@ -21,7 +22,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
   - ERC‑20 transfer: to = USDC contract; selector = 0xa9059cbb; the recipient is the first calldata arg.
   - Native ETH transfer: the to address is the recipient EOA; selector is empty (no calldata). Native handling will be documented when added.
   - Router swap: to = router (e.g., Uniswap); selector = swap function.
-- Per‑recipient limits are planned for v0.3 via per‑target caps; today the allowlist gates by contract+function, and caps apply to the provided amount.
+- Per‑recipient limits are available via per‑target caps; allowlist gates by contract+function; caps apply to the provided amount.
 
 ## API
 - loadPolicy(policy, policyHash)
@@ -39,7 +40,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 
 ## HTTP sidecar example
 - npm run serve
-  - Starts on http://127.0.0.1:8787 using examples/policy.sample.json
+  - Starts on http://127.0.0.1:8787 using examples/policy.v0_3.sample.json
   - CLI uses same data/log paths and the same policy hash (computed from policy), so counters are shared
 
 ## HTTP endpoints
@@ -49,11 +50,12 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - POST /execute { intent, txHash? }  // evaluate then, if allow, record
 
 ## CLI (after build)
-- npm run cli:simulate -- examples/policy.sample.json examples/intent.sample.json
+- npm run cli:simulate -- examples/policy.v0_3.sample.json examples/intent.sample.json
 - npm run cli:status
 
-## Policy additions (v0.2)
-- caps.max_per_function_h1: integer >= 1; applies per selector per hour window
+## Policy additions (v0.3 WIP)
+- Per-denomination caps via CapAmount (string or per-denom map); defaultDenomination support
+- Per-target caps caps.per_target.{h1,d1} by to or to|selector
 
 ## References
 - Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
