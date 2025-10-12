@@ -16,6 +16,13 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Per-function rate cap: max_per_function_h1 (optional, count per selector per hour)
 - JSONL audit logging (append-only)
 
+## Intent model (quick note)
+- to = the contract being called (target address on the transaction), not the end recipient of funds.
+  - ERC‑20 transfer: to = USDC contract; selector = 0xa9059cbb; the recipient is the first calldata arg.
+  - Native ETH transfer: the to address is the recipient EOA; selector is empty (no calldata). Native handling will be documented when added.
+  - Router swap: to = router (e.g., Uniswap); selector = swap function.
+- Per‑recipient limits are planned for v0.3 via per‑target caps; today the allowlist gates by contract+function, and caps apply to the provided amount.
+
 ## API
 - loadPolicy(policy, policyHash)
 - evaluate(intent) -> Decision
