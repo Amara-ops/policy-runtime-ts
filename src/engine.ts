@@ -1,12 +1,34 @@
-import type { CounterStore, Decision, Intent, Policy } from './types.js';
+import type { CapAmount, CounterStore, Decision, Intent, Policy } from './types.js';
 import { inAllowlist, validatePolicy } from './policy.js';
 import { toBigIntDecimal } from './util/amount.js';
 import { opId as makeOpId } from './util/id.js';
+import { getDenominationInfo } from './util/denom.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function key(prefix: string, denom: string) { return `${prefix}:${denom}`; }
+function key(prefix: string, suffix: string) { return `${prefix}:${suffix}`; }
+function resolveCap(cap: CapAmount | undefined, denom: string): bigint | undefined {
+  if (cap === undefined) return undefined;
+  if (typeof cap === 'string') return BigInt(cap);
+  const v = cap[denom];
+  if (v === undefined) return undefined;
+  if (typeof v === 'string') return BigInt(v);
+  const nested = v as Record<string, string>;
+  const nv = nested[denom];
+  return nv !== undefined ? BigInt(nv) : undefined;
+}
+
+function resolvePerTarget(map: Record<string, CapAmount> | undefined, to: string, selector: string, denom: string): { limit?: bigint; keySuffix?: string } {
+  if (!map) return {};
+  const keySel = `${to}|${selector}`;
+  const raw = map[keySel] !== undefined ? map[keySel] : map[to];
+  if (raw === undefined) return {};
+  const lim = resolveCap(raw, denom);
+  if (lim === undefined) return {};
+  const suffix = (map[keySel] !== undefined) ? `toSel:${keySel}:${denom}` : `to:${to}:${denom}`;
+  return { limit: lim, keySuffix: suffix };
+}
 
 export class PolicyEngine {
   private policy!: Policy;
@@ -32,23 +54,25 @@ export class PolicyEngine {
       return { action: 'deny', reasons: ['NOT_ALLOWLISTED'] };
     }
 
-    const denom = intent.denomination ?? 'BASE_USDC';
+    const denom = intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
     const amt = toBigIntDecimal(intent.amount);
+    const _denomInfo = getDenominationInfo(denom, this.policy.meta?.denominations);
 
-    const h1 = this.policy.caps?.max_outflow_h1 ? BigInt(this.policy.caps.max_outflow_h1) : undefined;
-    const d1 = this.policy.caps?.max_outflow_d1 ? BigInt(this.policy.caps.max_outflow_d1) : undefined;
+    // Caps (global per-denomination via CapAmount)
+    const h1 = resolveCap(this.policy.caps?.max_outflow_h1, denom);
+    const d1 = resolveCap(this.policy.caps?.max_outflow_d1, denom);
     const perFnH1 = this.policy.caps?.max_per_function_h1;
 
     let h1Used = 0n, d1Used = 0n;
     let perFnUsed = 0;
 
     if (h1 !== undefined) {
-      const w = await this.store.getWindow(key(this.policyHash, denom + ':h1'), HOUR_MS, now);
+      const w = await this.store.getWindow(key(this.policyHash, `${denom}:h1`), HOUR_MS, now);
       h1Used = w.used + amt;
       if (h1Used > h1) reasons.push('CAP_H1_EXCEEDED');
     }
     if (d1 !== undefined) {
-      const w = await this.store.getWindow(key(this.policyHash, denom + ':d1'), DAY_MS, now);
+      const w = await this.store.getWindow(key(this.policyHash, `${denom}:d1`), DAY_MS, now);
       d1Used = w.used + amt;
       if (d1Used > d1) reasons.push('CAP_D1_EXCEEDED');
     }
@@ -56,6 +80,21 @@ export class PolicyEngine {
       const w = await this.store.getWindow(key(this.policyHash, `fn:${intent.selector}:h1`), HOUR_MS, now);
       perFnUsed = Number(w.used) + 1;
       if (perFnUsed > perFnH1) reasons.push('CAP_PER_FUNCTION_H1_EXCEEDED');
+    }
+
+    // v0.3: Per-target caps; values can be string or per-denom map. Counters are per denomination.
+    const perTarget = this.policy.caps?.per_target;
+    const h1Target = resolvePerTarget(perTarget?.h1, intent.to, intent.selector, denom);
+    if (h1Target.limit !== undefined && h1Target.keySuffix) {
+      const w = await this.store.getWindow(key(this.policyHash, `${h1Target.keySuffix}:h1`), HOUR_MS, now);
+      const used = w.used + amt;
+      if (used > h1Target.limit) reasons.push('CAP_TARGET_H1_EXCEEDED');
+    }
+    const d1Target = resolvePerTarget(perTarget?.d1, intent.to, intent.selector, denom);
+    if (d1Target.limit !== undefined && d1Target.keySuffix) {
+      const w = await this.store.getWindow(key(this.policyHash, `${d1Target.keySuffix}:d1`), DAY_MS, now);
+      const used = w.used + amt;
+      if (used > d1Target.limit) reasons.push('CAP_TARGET_D1_EXCEEDED');
     }
 
     if (reasons.length) {
@@ -74,17 +113,26 @@ export class PolicyEngine {
   }
 
   async recordExecution(meta: { intent: Intent; txHash: string; amount?: string }, now: number = Date.now()): Promise<void> {
-    const denom = meta.intent.denomination ?? 'BASE_USDC';
+    const denom = meta.intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
     const amt = toBigIntDecimal(meta.amount ?? meta.intent.amount);
 
     if (this.policy.caps?.max_outflow_h1) {
-      await this.store.add(key(this.policyHash, denom + ':h1'), amt, HOUR_MS, now);
+      await this.store.add(key(this.policyHash, `${denom}:h1`), amt, HOUR_MS, now);
     }
     if (this.policy.caps?.max_outflow_d1) {
-      await this.store.add(key(this.policyHash, denom + ':d1'), amt, DAY_MS, now);
+      await this.store.add(key(this.policyHash, `${denom}:d1`), amt, DAY_MS, now);
     }
     if (this.policy.caps?.max_per_function_h1) {
       await this.store.add(key(this.policyHash, `fn:${meta.intent.selector}:h1`), 1n, HOUR_MS, now);
+    }
+    const perTarget = this.policy.caps?.per_target;
+    const h1Target = resolvePerTarget(perTarget?.h1, meta.intent.to, meta.intent.selector, denom);
+    if (h1Target.keySuffix) {
+      await this.store.add(key(this.policyHash, `${h1Target.keySuffix}:h1`), amt, HOUR_MS, now);
+    }
+    const d1Target = resolvePerTarget(perTarget?.d1, meta.intent.to, meta.intent.selector, denom);
+    if (d1Target.keySuffix) {
+      await this.store.add(key(this.policyHash, `${d1Target.keySuffix}:d1`), amt, DAY_MS, now);
     }
 
     if (this.logger) {

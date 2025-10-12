@@ -39,15 +39,31 @@ export function validatePolicy(policy: unknown): Policy {
       },
       caps: {
         type: 'object',
-        additionalProperties: false,
+        additionalProperties: true,
         properties: {
-          max_outflow_h1: { type: 'string', pattern: '^[0-9]+$' },
-          max_outflow_d1: { type: 'string', pattern: '^[0-9]+$' },
-          max_per_function_h1: { type: 'integer', minimum: 1 }
+          max_outflow_h1: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } } ] },
+          max_outflow_d1: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } } ] },
+          max_per_function_h1: { type: 'integer', minimum: 1 },
+          per_target: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              h1: { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } },
+              d1: { type: 'object', additionalProperties: { anyOf: [ { type: 'string', pattern: '^[0-9]+$' }, { type: 'object', additionalProperties: { type: 'string', pattern: '^[0-9]+$' } } ] } }
+            }
+          }
         }
       },
       pause: { type: 'boolean' },
-      meta: { type: 'object' }
+      meta: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          schemaVersion: { type: 'string' },
+          denominations: { type: 'object', additionalProperties: { type: 'object', properties: { decimals: { type: 'integer', minimum: 0 }, chainId: { type: 'integer', minimum: 1 }, address: { type: 'string', pattern: '^0x[0-9a-fA-F]{40}$' } }, required: ['decimals'] } },
+          defaultDenomination: { type: 'string' }
+        }
+      }
     }
   } as const;
   const validate = ajv.compile(schema);
