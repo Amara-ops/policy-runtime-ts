@@ -1,16 +1,11 @@
 # Changelog
 
-## 0.2.0
-- Add /execute endpoint (evaluate then record when allowed).
-- Add per-function rate cap: caps.max_per_function_h1 (count per selector per hour), with logging and headroom.
-- Update schema, tests, README, and sample policy.
-- Add CI workflow (Node 20, build + test on push/PR).
+## v0.3.0 (WIP)
+- Multi-denomination scaffolding: denomination registry (meta.denominations), defaultDenomination support, backward-compatible defaults (BASE_USDC).
+- Per-target caps: optional caps.per_target.{h1,d1} keyed by to or to|selector.
+- Docs: clarified Intent.to semantics; README example intent uses Base USDC address + transfer selector.
 
-## 0.1.0
-- MVP complete: engine (allowlist, pause, h1/d1 caps), file/memory stores, JSONL logging.
-- CLI (simulate/status), HTTP sidecar (/evaluate, /record, /pause), tests.
-- Stable policy hash; CLI and server share counters/logs.
-- Atomic file store writes.
-
-## 0.0.1 (internal)
-- Initial local iteration before GitHub push.
+## v0.2.0
+- /execute endpoint for atomic evaluate+record.
+- Per-function rate cap caps.max_per_function_h1 with logging and headroom.
+- CI workflow added; README polish; sample policy updates.

@@ -1,19 +1,27 @@
-export type Denomination = 'BASE_USDC';
+export type Denomination = 'BASE_USDC' | string; // v0.3: allow additional denominations via registry
 
 export interface AllowEntry {
   chainId: number;
-  to: string;      // lowercase 0x-address
+  to: string;      // lowercase 0x-address (contract target)
   selector: string; // 0x + 4 bytes
 }
 
 export interface CapsConfig {
-  max_outflow_h1?: string; // bigint as decimal string in base units
-  max_outflow_d1?: string; // bigint as decimal string in base units
+  max_outflow_h1?: string; // bigint as decimal string in base units (per denomination)
+  max_outflow_d1?: string; // bigint as decimal string in base units (per denomination)
   max_per_function_h1?: number; // optional count cap per selector per hour
+  // v0.3 additions (optional, backward-compatible)
+  per_target?: {
+    h1?: Record<string, string>; // key = to or to|selector, value bigint decimal
+    d1?: Record<string, string>;
+  };
 }
 
 export interface PolicyMeta {
   schemaVersion?: string;
+  // v0.3: denomination registry (symbol -> decimals); default BASE_USDC:6
+  denominations?: Record<string, { decimals: number; chainId?: number; address?: string }>; 
+  defaultDenomination?: string; // default if intent omits denomination
 }
 
 export interface Policy {
@@ -25,7 +33,7 @@ export interface Policy {
 
 export interface Intent {
   chainId: number;
-  to: string;         // lowercased 0x-address
+  to: string;         // lowercased 0x-address (contract target)
   selector: string;   // 0x + 4 bytes
   token?: string;     // 0x-address of token (if applicable)
   amount?: string;    // bigint as decimal string in base units

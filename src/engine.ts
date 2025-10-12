@@ -2,6 +2,7 @@ import type { CounterStore, Decision, Intent, Policy } from './types.js';
 import { inAllowlist, validatePolicy } from './policy.js';
 import { toBigIntDecimal } from './util/amount.js';
 import { opId as makeOpId } from './util/id.js';
+import { getDenominationInfo } from './util/denom.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -32,9 +33,11 @@ export class PolicyEngine {
       return { action: 'deny', reasons: ['NOT_ALLOWLISTED'] };
     }
 
-    const denom = intent.denomination ?? 'BASE_USDC';
+    const denom = intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
     const amt = toBigIntDecimal(intent.amount);
+    const denomInfo = getDenominationInfo(denom, this.policy.meta?.denominations);
 
+    // Caps (global per-denomination)
     const h1 = this.policy.caps?.max_outflow_h1 ? BigInt(this.policy.caps.max_outflow_h1) : undefined;
     const d1 = this.policy.caps?.max_outflow_d1 ? BigInt(this.policy.caps.max_outflow_d1) : undefined;
     const perFnH1 = this.policy.caps?.max_per_function_h1;
@@ -58,6 +61,27 @@ export class PolicyEngine {
       if (perFnUsed > perFnH1) reasons.push('CAP_PER_FUNCTION_H1_EXCEEDED');
     }
 
+    // v0.3: Per-target caps
+    const perTarget = this.policy.caps?.per_target;
+    if (perTarget?.h1) {
+      const k = perTarget.h1[intent.to] ?? perTarget.h1[`${intent.to}|${intent.selector}`];
+      if (k) {
+        const lim = BigInt(k);
+        const w = await this.store.getWindow(key(this.policyHash, `to:${intent.to}:h1`), HOUR_MS, now);
+        const used = w.used + amt;
+        if (used > lim) reasons.push('CAP_TARGET_H1_EXCEEDED');
+      }
+    }
+    if (perTarget?.d1) {
+      const k = perTarget.d1[intent.to] ?? perTarget.d1[`${intent.to}|${intent.selector}`];
+      if (k) {
+        const lim = BigInt(k);
+        const w = await this.store.getWindow(key(this.policyHash, `to:${intent.to}:d1`), DAY_MS, now);
+        const used = w.used + amt;
+        if (used > lim) reasons.push('CAP_TARGET_D1_EXCEEDED');
+      }
+    }
+
     if (reasons.length) {
       await this.logDecision({ intent, now, decision: 'deny', reasons, counters: { h1_used: h1Used?.toString(), d1_used: d1Used?.toString(), per_fn_h1_used: perFnUsed } });
       return { action: 'deny', reasons };
@@ -74,7 +98,7 @@ export class PolicyEngine {
   }
 
   async recordExecution(meta: { intent: Intent; txHash: string; amount?: string }, now: number = Date.now()): Promise<void> {
-    const denom = meta.intent.denomination ?? 'BASE_USDC';
+    const denom = meta.intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
     const amt = toBigIntDecimal(meta.amount ?? meta.intent.amount);
 
     if (this.policy.caps?.max_outflow_h1) {
@@ -85,6 +109,12 @@ export class PolicyEngine {
     }
     if (this.policy.caps?.max_per_function_h1) {
       await this.store.add(key(this.policyHash, `fn:${meta.intent.selector}:h1`), 1n, HOUR_MS, now);
+    }
+    if (this.policy.caps?.per_target?.h1?.[meta.intent.to] || this.policy.caps?.per_target?.h1?.[`${meta.intent.to}|${meta.intent.selector}`]) {
+      await this.store.add(key(this.policyHash, `to:${meta.intent.to}:h1`), amt, HOUR_MS, now);
+    }
+    if (this.policy.caps?.per_target?.d1?.[meta.intent.to] || this.policy.caps?.per_target?.d1?.[`${meta.intent.to}|${meta.intent.selector}`]) {
+      await this.store.add(key(this.policyHash, `to:${meta.intent.to}:d1`), amt, DAY_MS, now);
     }
 
     if (this.logger) {
