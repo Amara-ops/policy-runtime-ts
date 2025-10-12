@@ -51,11 +51,17 @@ test('per-target caps enforce to and to|selector', async () => {
   eng.loadPolicy(policy, phash());
   const now = Date.now();
 
-  const r1 = await eng.evaluate({ ...iUSDC, amount: '700' }, now);
+  // Under per-target h1 -> allow
+  const r0 = await eng.evaluate({ ...iUSDC, amount: '700' }, now);
+  expect(r0.action).toBe('allow');
+
+  // Over per-target h1 -> deny
+  const r1 = await eng.evaluate({ ...iUSDC, amount: '900' }, now);
   expect(r1.action).toBe('deny');
   expect(r1.reasons).toContain('CAP_TARGET_H1_EXCEEDED');
 
-  const r2 = await eng.evaluate({ ...iUSDC, amount: '900' }, now);
+  // Over per-target d1 (to|selector key) -> deny
+  const r2 = await eng.evaluate({ ...iUSDC, amount: '1600' }, now);
   expect(r2.action).toBe('deny');
   expect(r2.reasons).toContain('CAP_TARGET_D1_EXCEEDED');
 });
