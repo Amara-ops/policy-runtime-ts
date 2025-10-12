@@ -48,6 +48,10 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 ## Policy additions (v0.2)
 - caps.max_per_function_h1: integer >= 1; applies per selector per hour window
 
+## References
+- Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+- Base chainId: 8453
+
 ## Example intent.json
 {
   "chainId": 8453,
