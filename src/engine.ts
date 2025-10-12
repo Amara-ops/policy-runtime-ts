@@ -1,4 +1,4 @@
-import type { CounterStore, Decision, Intent, Policy } from './types.js';
+import type { CapAmount, CounterStore, Decision, Intent, Policy } from './types.js';
 import { inAllowlist, validatePolicy } from './policy.js';
 import { toBigIntDecimal } from './util/amount.js';
 import { opId as makeOpId } from './util/id.js';
@@ -8,6 +8,12 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function key(prefix: string, denom: string) { return `${prefix}:${denom}`; }
+function resolveCap(cap: CapAmount | undefined, denom: string): bigint | undefined {
+  if (cap === undefined) return undefined;
+  if (typeof cap === 'string') return BigInt(cap);
+  const v = cap[denom];
+  return v !== undefined ? BigInt(v) : undefined;
+}
 
 export class PolicyEngine {
   private policy!: Policy;
@@ -35,11 +41,11 @@ export class PolicyEngine {
 
     const denom = intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
     const amt = toBigIntDecimal(intent.amount);
-    const denomInfo = getDenominationInfo(denom, this.policy.meta?.denominations);
+    const _denomInfo = getDenominationInfo(denom, this.policy.meta?.denominations);
 
-    // Caps (global per-denomination)
-    const h1 = this.policy.caps?.max_outflow_h1 ? BigInt(this.policy.caps.max_outflow_h1) : undefined;
-    const d1 = this.policy.caps?.max_outflow_d1 ? BigInt(this.policy.caps.max_outflow_d1) : undefined;
+    // Caps (global per-denomination via CapAmount)
+    const h1 = resolveCap(this.policy.caps?.max_outflow_h1, denom);
+    const d1 = resolveCap(this.policy.caps?.max_outflow_d1, denom);
     const perFnH1 = this.policy.caps?.max_per_function_h1;
 
     let h1Used = 0n, d1Used = 0n;
