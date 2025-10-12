@@ -3,7 +3,7 @@ import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../dist/index.j
 async function main() {
   const policy = {
     allowlist: [
-      { chainId: 8453, to: '0x0000000000000000000000000000000000000001', selector: '0xaaaaaaaa' }
+      { chainId: 8453, to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', selector: '0xa9059cbb' }
     ],
     caps: { max_outflow_h1: '1000', max_outflow_d1: '2000' },
     pause: false
@@ -17,8 +17,8 @@ async function main() {
 
   const intent = {
     chainId: 8453,
-    to: '0x0000000000000000000000000000000000000001',
-    selector: '0xaaaaaaaa',
+    to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    selector: '0xa9059cbb',
     denomination: 'BASE_USDC',
     amount: '500'
   };

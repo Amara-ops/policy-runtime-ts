@@ -6,7 +6,7 @@ declare const test: any, expect: any;
 
 const basePolicy = {
   allowlist: [
-    { chainId: 8453, to: '0x0000000000000000000000000000000000000001', selector: '0xaaaaaaaa' }
+    { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' }
   ],
   caps: { max_outflow_h1: '1000', max_outflow_d1: '2000', max_per_function_h1: 2 },
   pause: false
@@ -14,8 +14,8 @@ const basePolicy = {
 
 const intent: Intent = {
   chainId: 8453,
-  to: '0x0000000000000000000000000000000000000001',
-  selector: '0xaaaaaaaa',
+  to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+  selector: '0xa9059cbb',
   denomination: 'BASE_USDC',
   amount: '500'
 };
