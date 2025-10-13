@@ -1,6 +1,6 @@
 {
   "name": "policy-runtime-ts",
-  "version": "0.3.0-rc.0",
+  "version": "0.3.0",
   "description": "Minimal policy runtime engine for agent treasury guardrails (allowlist, pause, caps, JSONL logging)",
   "type": "module",
   "main": "dist/index.js",
