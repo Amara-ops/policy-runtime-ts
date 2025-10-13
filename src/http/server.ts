@@ -14,6 +14,11 @@ export async function startServer(opts?: { port?: number; policy: any; policyHas
   const engine = new PolicyEngine(store, logger);
   engine.loadPolicy(policy, policyHash);
 
+  // Handle SIGHUP for log rotation
+  try {
+    process.on('SIGHUP', () => { try { (logger as any).reopen?.(); } catch {} });
+  } catch {}
+
   const server = http.createServer(async (req, res) => {
     try {
       if (req.method === 'POST' && req.url === '/evaluate') {

@@ -17,7 +17,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Per-target caps (optional): caps.per_target.{h1,d1} keyed by to or to|selector
 - Decision headroom: global and per-target remaining values exposed for observability/debugging
 - JSONL audit logging (append-only)
-- HTTP: policy reload via POST /reload
+- HTTP: policy reload via POST /reload; log rotate via SIGHUP
 
 ## Intent model (quick note)
 - to = the contract being called (target address on the transaction), not the end recipient of funds.
@@ -61,6 +61,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Per-target caps caps.per_target.{h1,d1} by to or to|selector
 - Decision target_headroom returns remaining per-target values (h1/d1) when a per-target cap applies
 - HTTP policy reload to support hot updates with hash continuity
+- Log rotate friendly: send SIGHUP to reopen logs
 
 ## References
 - Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
