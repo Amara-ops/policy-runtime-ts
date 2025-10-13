@@ -4,6 +4,8 @@
   ],
   "meta": {
     "defaultDenomination": "BASE_USDC",
+    "nonce_max_gap": 1,
+    "slippage_max_bps": 50,
     "denominations": {
       "BASE_USDC": { "decimals": 6, "chainId": 8453, "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
       "BASE_ETH": { "decimals": 18, "chainId": 8453 }
