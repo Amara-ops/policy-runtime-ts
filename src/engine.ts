@@ -1,4 +1,4 @@
-import type { CapAmount, CounterStore, Decision, Intent, Policy } from './types.js';
+import type { CapAmount, CounterStore, Decision, DecisionTargetHeadroom, Intent, Policy } from './types.js';
 import { inAllowlist, validatePolicy } from './policy.js';
 import { toBigIntDecimal } from './util/amount.js';
 import { opId as makeOpId } from './util/id.js';
@@ -19,15 +19,16 @@ function resolveCap(cap: CapAmount | undefined, denom: string): bigint | undefin
   return nv !== undefined ? BigInt(nv) : undefined;
 }
 
-function resolvePerTarget(map: Record<string, CapAmount> | undefined, to: string, selector: string, denom: string): { limit?: bigint; keySuffix?: string } {
+function resolvePerTarget(map: Record<string, CapAmount> | undefined, to: string, selector: string, denom: string): { limit?: bigint; keySuffix?: string; rawKey?: string } {
   if (!map) return {};
   const keySel = `${to}|${selector}`;
-  const raw = map[keySel] !== undefined ? map[keySel] : map[to];
-  if (raw === undefined) return {};
+  const rawKey = (map[keySel] !== undefined) ? keySel : (map[to] !== undefined ? to : undefined);
+  if (!rawKey) return {};
+  const raw = map[rawKey]!;
   const lim = resolveCap(raw, denom);
   if (lim === undefined) return {};
-  const suffix = (map[keySel] !== undefined) ? `toSel:${keySel}:${denom}` : `to:${to}:${denom}`;
-  return { limit: lim, keySuffix: suffix };
+  const suffix = rawKey === keySel ? `toSel:${keySel}:${denom}` : `to:${to}:${denom}`;
+  return { limit: lim, keySuffix: suffix, rawKey };
 }
 
 export class PolicyEngine {
@@ -84,22 +85,29 @@ export class PolicyEngine {
 
     // v0.3: Per-target caps; values can be string or per-denom map. Counters are per denomination.
     const perTarget = this.policy.caps?.per_target;
+    const targetHeadroom: DecisionTargetHeadroom = {};
+
     const h1Target = resolvePerTarget(perTarget?.h1, intent.to, intent.selector, denom);
     if (h1Target.limit !== undefined && h1Target.keySuffix) {
       const w = await this.store.getWindow(key(this.policyHash, `${h1Target.keySuffix}:h1`), HOUR_MS, now);
       const used = w.used + amt;
+      const remaining = h1Target.limit - used;
+      targetHeadroom.h1 = { key: h1Target.rawKey!, remaining: remaining.toString() };
       if (used > h1Target.limit) reasons.push('CAP_TARGET_H1_EXCEEDED');
     }
+
     const d1Target = resolvePerTarget(perTarget?.d1, intent.to, intent.selector, denom);
     if (d1Target.limit !== undefined && d1Target.keySuffix) {
       const w = await this.store.getWindow(key(this.policyHash, `${d1Target.keySuffix}:d1`), DAY_MS, now);
       const used = w.used + amt;
+      const remaining = d1Target.limit - used;
+      targetHeadroom.d1 = { key: d1Target.rawKey!, remaining: remaining.toString() };
       if (used > d1Target.limit) reasons.push('CAP_TARGET_D1_EXCEEDED');
     }
 
     if (reasons.length) {
       await this.logDecision({ intent, now, decision: 'deny', reasons, counters: { h1_used: h1Used?.toString(), d1_used: d1Used?.toString(), per_fn_h1_used: perFnUsed } });
-      return { action: 'deny', reasons };
+      return { action: 'deny', reasons, target_headroom: Object.keys(targetHeadroom).length ? targetHeadroom : undefined };
     }
 
     const headroom = {
@@ -109,7 +117,7 @@ export class PolicyEngine {
     };
 
     await this.logDecision({ intent, now, decision: 'allow', reasons: [], counters: { h1_used: h1Used.toString(), d1_used: d1Used.toString(), per_fn_h1_used: perFnUsed }, headroom });
-    return { action: 'allow', reasons: [], headroom };
+    return { action: 'allow', reasons: [], headroom, target_headroom: Object.keys(targetHeadroom).length ? targetHeadroom : undefined };
   }
 
   async recordExecution(meta: { intent: Intent; txHash: string; amount?: string }, now: number = Date.now()): Promise<void> {

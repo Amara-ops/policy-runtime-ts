@@ -45,15 +45,19 @@ export interface Intent {
 export type DecisionAction = 'allow' | 'deny' | 'escalate';
 
 export interface DecisionHeadroom {
-  h1?: string; // remaining in base units
+  h1?: string; // remaining in base units (may be negative if exceeded)
   d1?: string;
   per_fn_h1?: number; // remaining count
 }
+
+export interface DecisionTargetHeadroomDetail { key: string; remaining: string; }
+export interface DecisionTargetHeadroom { h1?: DecisionTargetHeadroomDetail; d1?: DecisionTargetHeadroomDetail }
 
 export interface Decision {
   action: DecisionAction;
   reasons: string[];
   headroom?: DecisionHeadroom;
+  target_headroom?: DecisionTargetHeadroom;
 }
 
 export interface CounterWindow {

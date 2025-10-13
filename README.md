@@ -15,6 +15,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Caps: max_outflow_h1, max_outflow_d1 (per-denomination; default BASE_USDC)
 - Per-function rate cap: max_per_function_h1 (optional, count per selector per hour)
 - Per-target caps (optional): caps.per_target.{h1,d1} keyed by to or to|selector
+- Decision headroom: global and per-target remaining values exposed for observability/debugging
 - JSONL audit logging (append-only)
 
 ## Intent model (quick note)
@@ -56,6 +57,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 ## Policy additions (v0.3 WIP)
 - Per-denomination caps via CapAmount (string or per-denom map); defaultDenomination support
 - Per-target caps caps.per_target.{h1,d1} by to or to|selector
+- Decision target_headroom returns remaining per-target values (h1/d1) when a per-target cap applies
 
 ## References
 - Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913

@@ -45,23 +45,26 @@ test('per-denomination caps isolate usage', async () => {
   expect(r2.action).toBe('allow');
 });
 
-test('per-target caps enforce to and to|selector', async () => {
+test('per-target caps enforce to and to|selector and return target_headroom', async () => {
   const store = new MemoryCounterStore();
   const eng = new PolicyEngine(store);
   eng.loadPolicy(policy, phash());
   const now = Date.now();
 
-  // Under per-target h1 -> allow
+  // Under per-target h1 -> allow and report target_headroom.h1
   const r0 = await eng.evaluate({ ...iUSDC, amount: '700' }, now);
   expect(r0.action).toBe('allow');
+  expect(r0.target_headroom?.h1?.key).toBe('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913');
 
-  // Over per-target h1 -> deny
+  // Over per-target h1 -> deny with CAP_TARGET_H1_EXCEEDED and target_headroom.h1 present
   const r1 = await eng.evaluate({ ...iUSDC, amount: '900' }, now);
   expect(r1.action).toBe('deny');
   expect(r1.reasons).toContain('CAP_TARGET_H1_EXCEEDED');
+  expect(r1.target_headroom?.h1?.key).toBe('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913');
 
-  // Over per-target d1 (to|selector key) -> deny
+  // Over per-target d1 (to|selector key) -> deny and target_headroom.d1 present
   const r2 = await eng.evaluate({ ...iUSDC, amount: '1600' }, now);
   expect(r2.action).toBe('deny');
   expect(r2.reasons).toContain('CAP_TARGET_D1_EXCEEDED');
+  expect(r2.target_headroom?.d1?.key).toBe('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913|0xa9059cbb');
 });
