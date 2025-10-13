@@ -47,6 +47,16 @@ export async function startServer(opts?: { port?: number; policy: any; policyHas
         res.end(JSON.stringify(dec));
         return;
       }
+      if (req.method === 'POST' && req.url === '/reload') {
+        const body = await readJson(req);
+        const newPolicy = body.policy;
+        if (!newPolicy) throw new Error('policy missing');
+        const newHash = computePolicyHash(newPolicy);
+        engine.loadPolicy(newPolicy, newHash);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, policyHash: newHash }));
+        return;
+      }
       res.writeHead(404);
       res.end();
     } catch (e: any) {

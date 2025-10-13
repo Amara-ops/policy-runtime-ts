@@ -17,6 +17,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Per-target caps (optional): caps.per_target.{h1,d1} keyed by to or to|selector
 - Decision headroom: global and per-target remaining values exposed for observability/debugging
 - JSONL audit logging (append-only)
+- HTTP: policy reload via POST /reload
 
 ## Intent model (quick note)
 - to = the contract being called (target address on the transaction), not the end recipient of funds.
@@ -49,6 +50,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - POST /record { intent, txHash, amount? }
 - POST /pause { paused: boolean }
 - POST /execute { intent, txHash? }  // evaluate then, if allow, record
+- POST /reload { policy } // validate, compute new hash and swap
 
 ## CLI (after build)
 - npm run cli:simulate -- examples/policy.v0_3.sample.json examples/intent.sample.json
@@ -58,6 +60,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Per-denomination caps via CapAmount (string or per-denom map); defaultDenomination support
 - Per-target caps caps.per_target.{h1,d1} by to or to|selector
 - Decision target_headroom returns remaining per-target values (h1/d1) when a per-target cap applies
+- HTTP policy reload to support hot updates with hash continuity
 
 ## References
 - Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913

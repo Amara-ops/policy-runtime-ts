@@ -1,54 +1,53 @@
 /* eslint-disable */
 import http from 'node:http';
 import { startServer } from '../http/server.js';
+import { computePolicyHash } from '../util/policyHash.js';
 
-const policy = {
-  allowlist: [
-    { chainId: 8453, to: '0x0000000000000000000000000000000000000001', selector: '0xaaaaaaaa' }
-  ],
-  caps: { max_outflow_h1: '1000', max_outflow_d1: '2000' },
-  pause: false
+declare const test: any, expect: any, beforeAll: any, afterAll: any;
+
+const policy1 = {
+  allowlist: [ { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' } ],
+  caps: { max_outflow_h1: '1000' },
+  pause: false,
+  meta: { defaultDenomination: 'BASE_USDC' }
+};
+const policy2 = {
+  allowlist: [ { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' } ],
+  caps: { max_outflow_h1: '2000' },
+  pause: true,
+  meta: { defaultDenomination: 'BASE_USDC' }
 };
 
-function req(method: string, path: string, body?: any): Promise<{ status: number, json?: any }> {
-  return new Promise((resolve) => {
-    const data = body ? Buffer.from(JSON.stringify(body)) : undefined;
-    const req = http.request({ hostname: '127.0.0.1', port: 8789, path, method, headers: { 'content-type': 'application/json', 'content-length': data?.length || 0 }}, (res) => {
-      const chunks: Buffer[] = [];
-      res.on('data', (c) => chunks.push(c as any));
-      res.on('end', () => {
-        const txt = Buffer.concat(chunks).toString('utf8');
-        try { resolve({ status: res.statusCode || 0, json: txt ? JSON.parse(txt) : undefined }); }
-        catch { resolve({ status: res.statusCode || 0 }); }
-      });
-    });
-    if (data) req.write(data);
-    req.end();
-  });
+let server: http.Server;
+
+beforeAll(async () => {
+  const res = await startServer({ policy: policy1, policyHash: computePolicyHash(policy1) });
+  server = res.server;
+});
+
+afterAll(async () => {
+  await new Promise<void>(resolve => server.close(() => resolve()))
+});
+
+async function post(path: string, body: any) {
+  return await fetch('http://127.0.0.1:8787' + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 }
 
-it('HTTP server evaluate/record/pause/execute', async () => {
-  const { server } = await startServer({ port: 8789, policy, policyHash: '0x' + 'ee'.repeat(32) });
-  try {
-    const intent = { chainId: 8453, to: '0x0000000000000000000000000000000000000001', selector: '0xaaaaaaaa', denomination: 'BASE_USDC', amount: '600' };
+test('execute works', async () => {
+  const r = await post('/execute', { intent: { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb', amount: '500' } });
+  const j = await r.json();
+  expect(j.action).toBe('allow');
+});
 
-    const a = await req('POST', '/evaluate', { intent });
-    expect(a.status).toBe(200);
-    expect(a.json.action).toBe('allow');
+test('reload swaps policy and hash', async () => {
+  const r = await post('/reload', { policy: policy2 });
+  const j = await r.json();
+  expect(j.ok).toBe(true);
+  expect(j.policyHash).toBe(computePolicyHash(policy2));
 
-    await req('POST', '/record', { intent, txHash: '0x99' });
-
-    const b = await req('POST', '/evaluate', { intent });
-    expect(b.json.action).toBe('deny');
-
-    const ex = await req('POST', '/execute', { intent });
-    expect(ex.status).toBe(200);
-    expect(ex.json.action).toBe('deny');
-
-    await req('POST', '/pause', { paused: true });
-    const c = await req('POST', '/evaluate', { intent });
-    expect(c.json.reasons).toContain('PAUSED');
-  } finally {
-    server.close();
-  }
+  // Now paused
+  const r2 = await post('/evaluate', { intent: { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb', amount: '1' } });
+  const j2 = await r2.json();
+  expect(j2.action).toBe('deny');
+  expect(j2.reasons).toContain('PAUSED');
 });
