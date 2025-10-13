@@ -10,6 +10,7 @@ const policy = {
   ],
   meta: {
     defaultDenomination: 'BASE_USDC',
+    nonce_max_gap: 1,
     denominations: {
       BASE_USDC: { decimals: 6, chainId: 8453, address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' },
       BASE_ETH: { decimals: 18, chainId: 8453 }
@@ -28,8 +29,10 @@ const policy = {
 
 function phash() { return '0x' + '22'.repeat(32); }
 
-const iUSDC: Intent = { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb', denomination: 'BASE_USDC', amount: '500' };
-const iETH: Intent = { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb', denomination: 'BASE_ETH', amount: '50000000000000000' };
+const base: Intent = { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb', denomination: 'BASE_USDC', amount: '1' };
+
+const iUSDC: Intent = { ...base, amount: '500' };
+const iETH: Intent = { ...base, denomination: 'BASE_ETH', amount: '50000000000000000' };
 
 test('per-denomination caps isolate usage', async () => {
   const store = new MemoryCounterStore();
@@ -45,7 +48,7 @@ test('per-denomination caps isolate usage', async () => {
   expect(r2.action).toBe('allow');
 });
 
-test('per-target caps enforce to and to|selector and return target_headroom; deadline filter works', async () => {
+test('per-target caps enforce to and to|selector and return target_headroom; deadline and nonce gap filters work', async () => {
   const store = new MemoryCounterStore();
   const eng = new PolicyEngine(store);
   eng.loadPolicy(policy, phash());
@@ -69,7 +72,21 @@ test('per-target caps enforce to and to|selector and return target_headroom; dea
   expect(r2.target_headroom?.d1?.key).toBe('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913|0xa9059cbb');
 
   // Deadline expired -> deny
-  const r3 = await eng.evaluate({ ...iUSDC, amount: '1', deadline_ms: now - 1 }, now);
+  const r3 = await eng.evaluate({ ...iUSDC, deadline_ms: now - 1 }, now);
   expect(r3.action).toBe('deny');
   expect(r3.reasons).toContain('DEADLINE_EXPIRED');
+
+  // Nonce regression -> deny
+  const r4 = await eng.evaluate({ ...iUSDC, nonce: 4, prev_nonce: 5 }, now);
+  expect(r4.action).toBe('deny');
+  expect(r4.reasons).toContain('NONCE_REGRESSION');
+
+  // Nonce jump > gap -> deny
+  const r5 = await eng.evaluate({ ...iUSDC, nonce: 7, prev_nonce: 5 }, now);
+  expect(r5.action).toBe('deny');
+  expect(r5.reasons).toContain('NONCE_GAP_EXCEEDED');
+
+  // Replacement (same nonce) -> allowed (subject to other caps)
+  const r6 = await eng.evaluate({ ...iUSDC, nonce: 5, prev_nonce: 5 }, now);
+  expect(r6.action).toBe('allow');
 });

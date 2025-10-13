@@ -19,6 +19,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - JSONL audit logging (append-only)
 - HTTP: policy reload via POST /reload; log rotate via SIGHUP
 - Observability: GET /metrics (Prometheus text format; minimal baseline)
+- Intent filters (optional): deadline_ms, nonce_max_gap (with intent.nonce/prev_nonce)
 
 ## Intent model (quick note)
 - to = the contract being called (target address on the transaction), not the end recipient of funds.
@@ -65,6 +66,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - HTTP policy reload to support hot updates with hash continuity
 - Log rotate friendly: send SIGHUP to reopen logs
 - Metrics endpoint to expose minimal runtime info for scraping
+- Intent filters: deadline (deadline_ms), nonce gap (meta.nonce_max_gap + intent.nonce/prev_nonce)
 
 ## References
 - Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
@@ -76,5 +78,8 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
   "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   "selector": "0xa9059cbb",
   "denomination": "BASE_USDC",
-  "amount": "500"
+  "amount": "500",
+  "deadline_ms": 1734100000000,
+  "nonce": 42,
+  "prev_nonce": 42
 }

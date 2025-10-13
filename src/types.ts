@@ -24,6 +24,8 @@ export interface PolicyMeta {
   // v0.3: denomination registry (symbol -> decimals); default BASE_USDC:6
   denominations?: Record<string, { decimals: number; chainId?: number; address?: string }>; 
   defaultDenomination?: string; // default if intent omits denomination
+  // v0.3: optional nonce gap guard (EOA-style sequential nonces)
+  nonce_max_gap?: number; // allow replacements (same nonce), deny regressions and jumps > gap
 }
 
 export interface Policy {
@@ -42,6 +44,8 @@ export interface Intent {
   denomination?: Denomination;
   // v0.3 filters (optional)
   deadline_ms?: number; // epoch ms; deny with DEADLINE_EXPIRED if now > deadline
+  nonce?: number;       // current tx nonce proposed by the executor
+  prev_nonce?: number;  // last submitted nonce observed by the executor
 }
 
 export type DecisionAction = 'allow' | 'deny' | 'escalate';

@@ -45,7 +45,7 @@ export class PolicyEngine {
   async evaluate(intent: Intent, now: number = Date.now()): Promise<Decision> {
     const reasons: string[] = [];
 
-    // Early denies (paused / deadline / not allowlisted)
+    // Early denies (paused / deadline / nonce gap / not allowlisted)
     if (this.policy.pause) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['PAUSED'] });
       return { action: 'deny', reasons: ['PAUSED'] };
@@ -53,6 +53,17 @@ export class PolicyEngine {
     if (intent.deadline_ms && now > intent.deadline_ms) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['DEADLINE_EXPIRED'] });
       return { action: 'deny', reasons: ['DEADLINE_EXPIRED'] };
+    }
+    const maxGap = this.policy.meta?.nonce_max_gap;
+    if (typeof maxGap === 'number' && intent.nonce !== undefined && intent.prev_nonce !== undefined) {
+      if (intent.nonce < intent.prev_nonce) {
+        await this.logDecision({ intent, now, decision: 'deny', reasons: ['NONCE_REGRESSION'] });
+        return { action: 'deny', reasons: ['NONCE_REGRESSION'] };
+      }
+      if (intent.nonce - intent.prev_nonce > maxGap) {
+        await this.logDecision({ intent, now, decision: 'deny', reasons: ['NONCE_GAP_EXCEEDED'] });
+        return { action: 'deny', reasons: ['NONCE_GAP_EXCEEDED'] };
+      }
     }
     if (!inAllowlist(this.policy.allowlist, intent.chainId, intent.to, intent.selector)) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['NOT_ALLOWLISTED'] });
