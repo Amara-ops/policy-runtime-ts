@@ -24,6 +24,10 @@ export interface PolicyMeta {
   // v0.3: denomination registry (symbol -> decimals); default BASE_USDC:6
   denominations?: Record<string, { decimals: number; chainId?: number; address?: string }>; 
   defaultDenomination?: string; // default if intent omits denomination
+  // v0.3: optional nonce gap guard (EOA-style sequential nonces)
+  nonce_max_gap?: number; // allow replacements (same nonce), deny regressions and jumps > gap
+  // v0.3: optional max slippage in basis points
+  slippage_max_bps?: number; // deny if intent.slippage_bps > slippage_max_bps
 }
 
 export interface Policy {
@@ -40,20 +44,29 @@ export interface Intent {
   token?: string;     // 0x-address of token (if applicable)
   amount?: string;    // bigint as decimal string in base units
   denomination?: Denomination;
+  // v0.3 filters (optional)
+  deadline_ms?: number; // epoch ms; deny with DEADLINE_EXPIRED if now > deadline
+  nonce?: number;       // current tx nonce proposed by the executor
+  prev_nonce?: number;  // last submitted nonce observed by the executor
+  slippage_bps?: number; // slippage or maxDeviation provided by caller, basis points
 }
 
 export type DecisionAction = 'allow' | 'deny' | 'escalate';
 
 export interface DecisionHeadroom {
-  h1?: string; // remaining in base units
+  h1?: string; // remaining in base units (may be negative if exceeded)
   d1?: string;
   per_fn_h1?: number; // remaining count
 }
+
+export interface DecisionTargetHeadroomDetail { key: string; remaining: string; }
+export interface DecisionTargetHeadroom { h1?: DecisionTargetHeadroomDetail; d1?: DecisionTargetHeadroomDetail }
 
 export interface Decision {
   action: DecisionAction;
   reasons: string[];
   headroom?: DecisionHeadroom;
+  target_headroom?: DecisionTargetHeadroom;
 }
 
 export interface CounterWindow {

@@ -2,6 +2,10 @@ import http from 'node:http';
 import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../index.js';
 import { computePolicyHash } from '../util/policyHash.js';
 
+let decisionCount = 0;
+let allowCount = 0;
+let denyCount = 0;
+
 export async function startServer(opts?: { port?: number; policy: any; policyHash?: string }) {
   const port = opts?.port ?? 8787;
   const policy = opts?.policy;
@@ -14,11 +18,17 @@ export async function startServer(opts?: { port?: number; policy: any; policyHas
   const engine = new PolicyEngine(store, logger);
   engine.loadPolicy(policy, policyHash);
 
+  // Handle SIGHUP for log rotation
+  try {
+    process.on('SIGHUP', () => { try { (logger as any).reopen?.(); } catch {} });
+  } catch {}
+
   const server = http.createServer(async (req, res) => {
     try {
       if (req.method === 'POST' && req.url === '/evaluate') {
         const body = await readJson(req);
         const dec = await engine.evaluate(body.intent);
+        decisionCount++; if (dec.action === 'allow') allowCount++; else if (dec.action === 'deny') denyCount++;
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify(dec));
         return;
@@ -40,11 +50,35 @@ export async function startServer(opts?: { port?: number; policy: any; policyHas
       if (req.method === 'POST' && req.url === '/execute') {
         const body = await readJson(req);
         const dec = await engine.evaluate(body.intent);
+        decisionCount++; if (dec.action === 'allow') allowCount++; else if (dec.action === 'deny') denyCount++;
         if (dec.action === 'allow') {
           await engine.recordExecution({ intent: body.intent, txHash: body.txHash || '0x' + Math.random().toString(16).slice(2) });
         }
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify(dec));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/reload') {
+        const body = await readJson(req);
+        const newPolicy = body.policy;
+        if (!newPolicy) throw new Error('policy missing');
+        const newHash = computePolicyHash(newPolicy);
+        engine.loadPolicy(newPolicy, newHash);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, policyHash: newHash }));
+        return;
+      }
+      if (req.method === 'GET' && req.url === '/metrics') {
+        let txt = '';
+        txt += '# HELP policy_runtime_decisions_total Total decisions returned by the runtime\n';
+        txt += '# TYPE policy_runtime_decisions_total counter\n';
+        txt += `policy_runtime_decisions_total ${decisionCount}\n`;
+        txt += '# HELP policy_runtime_decisions_by_action_total Decisions by action\n';
+        txt += '# TYPE policy_runtime_decisions_by_action_total counter\n';
+        txt += `policy_runtime_decisions_by_action_total{action="allow"} ${allowCount}\n`;
+        txt += `policy_runtime_decisions_by_action_total{action="deny"} ${denyCount}\n`;
+        res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' });
+        res.end(txt);
         return;
       }
       res.writeHead(404);
