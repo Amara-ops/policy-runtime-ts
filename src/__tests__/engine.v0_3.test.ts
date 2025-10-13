@@ -11,6 +11,7 @@ const policy = {
   meta: {
     defaultDenomination: 'BASE_USDC',
     nonce_max_gap: 1,
+    slippage_max_bps: 50,
     denominations: {
       BASE_USDC: { decimals: 6, chainId: 8453, address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' },
       BASE_ETH: { decimals: 18, chainId: 8453 }
@@ -48,7 +49,7 @@ test('per-denomination caps isolate usage', async () => {
   expect(r2.action).toBe('allow');
 });
 
-test('per-target caps enforce to and to|selector and return target_headroom; deadline and nonce gap filters work', async () => {
+test('per-target caps enforce to and to|selector and return target_headroom; deadline, nonce gap, and slippage filters work', async () => {
   const store = new MemoryCounterStore();
   const eng = new PolicyEngine(store);
   eng.loadPolicy(policy, phash());
@@ -89,4 +90,13 @@ test('per-target caps enforce to and to|selector and return target_headroom; dea
   // Replacement (same nonce) -> allowed (subject to other caps)
   const r6 = await eng.evaluate({ ...iUSDC, nonce: 5, prev_nonce: 5 }, now);
   expect(r6.action).toBe('allow');
+
+  // Slippage exceeded -> deny
+  const r7 = await eng.evaluate({ ...iUSDC, slippage_bps: 100 }, now);
+  expect(r7.action).toBe('deny');
+  expect(r7.reasons).toContain('SLIPPAGE_EXCEEDED');
+
+  // Slippage within limit -> allow
+  const r8 = await eng.evaluate({ ...iUSDC, slippage_bps: 25 }, now);
+  expect(r8.action).toBe('allow');
 });

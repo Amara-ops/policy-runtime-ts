@@ -11,7 +11,7 @@ function key(prefix: string, suffix: string) { return `${prefix}:${suffix}`; }
 function resolveCap(cap: CapAmount | undefined, denom: string): bigint | undefined {
   if (cap === undefined) return undefined;
   if (typeof cap === 'string') return BigInt(cap);
-  const v = cap[denom];
+  const v = (cap as any)[denom];
   if (v === undefined) return undefined;
   if (typeof v === 'string') return BigInt(v);
   const nested = v as Record<string, string>;
@@ -45,7 +45,7 @@ export class PolicyEngine {
   async evaluate(intent: Intent, now: number = Date.now()): Promise<Decision> {
     const reasons: string[] = [];
 
-    // Early denies (paused / deadline / nonce gap / not allowlisted)
+    // Early denies (paused / deadline / nonce gap / slippage / not allowlisted)
     if (this.policy.pause) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['PAUSED'] });
       return { action: 'deny', reasons: ['PAUSED'] };
@@ -63,6 +63,13 @@ export class PolicyEngine {
       if (intent.nonce - intent.prev_nonce > maxGap) {
         await this.logDecision({ intent, now, decision: 'deny', reasons: ['NONCE_GAP_EXCEEDED'] });
         return { action: 'deny', reasons: ['NONCE_GAP_EXCEEDED'] };
+      }
+    }
+    const slipMax = this.policy.meta?.slippage_max_bps;
+    if (typeof slipMax === 'number' && intent.slippage_bps !== undefined) {
+      if (intent.slippage_bps > slipMax) {
+        await this.logDecision({ intent, now, decision: 'deny', reasons: ['SLIPPAGE_EXCEEDED'] });
+        return { action: 'deny', reasons: ['SLIPPAGE_EXCEEDED'] };
       }
     }
     if (!inAllowlist(this.policy.allowlist, intent.chainId, intent.to, intent.selector)) {

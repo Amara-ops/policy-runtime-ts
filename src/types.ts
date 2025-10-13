@@ -26,6 +26,8 @@ export interface PolicyMeta {
   defaultDenomination?: string; // default if intent omits denomination
   // v0.3: optional nonce gap guard (EOA-style sequential nonces)
   nonce_max_gap?: number; // allow replacements (same nonce), deny regressions and jumps > gap
+  // v0.3: optional max slippage in basis points
+  slippage_max_bps?: number; // deny if intent.slippage_bps > slippage_max_bps
 }
 
 export interface Policy {
@@ -46,6 +48,7 @@ export interface Intent {
   deadline_ms?: number; // epoch ms; deny with DEADLINE_EXPIRED if now > deadline
   nonce?: number;       // current tx nonce proposed by the executor
   prev_nonce?: number;  // last submitted nonce observed by the executor
+  slippage_bps?: number; // slippage or maxDeviation provided by caller, basis points
 }
 
 export type DecisionAction = 'allow' | 'deny' | 'escalate';
