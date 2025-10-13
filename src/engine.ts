@@ -45,10 +45,14 @@ export class PolicyEngine {
   async evaluate(intent: Intent, now: number = Date.now()): Promise<Decision> {
     const reasons: string[] = [];
 
-    // Early denies (paused / not allowlisted)
+    // Early denies (paused / deadline / not allowlisted)
     if (this.policy.pause) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['PAUSED'] });
       return { action: 'deny', reasons: ['PAUSED'] };
+    }
+    if (intent.deadline_ms && now > intent.deadline_ms) {
+      await this.logDecision({ intent, now, decision: 'deny', reasons: ['DEADLINE_EXPIRED'] });
+      return { action: 'deny', reasons: ['DEADLINE_EXPIRED'] };
     }
     if (!inAllowlist(this.policy.allowlist, intent.chainId, intent.to, intent.selector)) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['NOT_ALLOWLISTED'] });

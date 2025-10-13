@@ -33,6 +33,10 @@ async function post(path: string, body: any) {
   return await fetch('http://127.0.0.1:8787' + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 }
 
+async function get(path: string) {
+  return await fetch('http://127.0.0.1:8787' + path);
+}
+
 test('execute works', async () => {
   const r = await post('/execute', { intent: { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb', amount: '500' } });
   const j = await r.json();
@@ -50,4 +54,11 @@ test('reload swaps policy and hash', async () => {
   const j2 = await r2.json();
   expect(j2.action).toBe('deny');
   expect(j2.reasons).toContain('PAUSED');
+});
+
+test('metrics endpoint returns counters', async () => {
+  const r = await get('/metrics');
+  const t = await r.text();
+  expect(t).toContain('policy_runtime_decisions_total');
+  expect(t).toContain('policy_runtime_decisions_by_action_total');
 });

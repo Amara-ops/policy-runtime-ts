@@ -45,7 +45,7 @@ test('per-denomination caps isolate usage', async () => {
   expect(r2.action).toBe('allow');
 });
 
-test('per-target caps enforce to and to|selector and return target_headroom', async () => {
+test('per-target caps enforce to and to|selector and return target_headroom; deadline filter works', async () => {
   const store = new MemoryCounterStore();
   const eng = new PolicyEngine(store);
   eng.loadPolicy(policy, phash());
@@ -67,4 +67,9 @@ test('per-target caps enforce to and to|selector and return target_headroom', as
   expect(r2.action).toBe('deny');
   expect(r2.reasons).toContain('CAP_TARGET_D1_EXCEEDED');
   expect(r2.target_headroom?.d1?.key).toBe('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913|0xa9059cbb');
+
+  // Deadline expired -> deny
+  const r3 = await eng.evaluate({ ...iUSDC, amount: '1', deadline_ms: now - 1 }, now);
+  expect(r3.action).toBe('deny');
+  expect(r3.reasons).toContain('DEADLINE_EXPIRED');
 });

@@ -18,6 +18,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Decision headroom: global and per-target remaining values exposed for observability/debugging
 - JSONL audit logging (append-only)
 - HTTP: policy reload via POST /reload; log rotate via SIGHUP
+- Observability: GET /metrics (Prometheus text format; minimal baseline)
 
 ## Intent model (quick note)
 - to = the contract being called (target address on the transaction), not the end recipient of funds.
@@ -51,6 +52,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - POST /pause { paused: boolean }
 - POST /execute { intent, txHash? }  // evaluate then, if allow, record
 - POST /reload { policy } // validate, compute new hash and swap
+- GET /metrics // Prometheus text format (baseline)
 
 ## CLI (after build)
 - npm run cli:simulate -- examples/policy.v0_3.sample.json examples/intent.sample.json
@@ -62,6 +64,7 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Decision target_headroom returns remaining per-target values (h1/d1) when a per-target cap applies
 - HTTP policy reload to support hot updates with hash continuity
 - Log rotate friendly: send SIGHUP to reopen logs
+- Metrics endpoint to expose minimal runtime info for scraping
 
 ## References
 - Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913

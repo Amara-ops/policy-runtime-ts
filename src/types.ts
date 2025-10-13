@@ -40,6 +40,8 @@ export interface Intent {
   token?: string;     // 0x-address of token (if applicable)
   amount?: string;    // bigint as decimal string in base units
   denomination?: Denomination;
+  // v0.3 filters (optional)
+  deadline_ms?: number; // epoch ms; deny with DEADLINE_EXPIRED if now > deadline
 }
 
 export type DecisionAction = 'allow' | 'deny' | 'escalate';
