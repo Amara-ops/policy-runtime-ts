@@ -9,6 +9,45 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Policy Linter (CI): https://github.com/Amara-ops/agent-guardrails-policy-linter
 - Policy Linter Action (GitHub Marketplace Action): https://github.com/Amara-ops/policy-linter-action
 
+## Quickstart (5 minutes)
+1) Build and run the HTTP sidecar
+- npm i && npm run build
+- node examples/http_server.mjs  # starts http://127.0.0.1:8787 using examples/policy.v0_3.sample.json
+
+2) Evaluate an intent (allow)
+- curl -sS -X POST http://127.0.0.1:8787/evaluate \
+  -H 'Content-Type: application/json' \
+  -d @examples/intent.sample.json | jq .
+
+3) Evaluate a deny (exceed cap)
+- curl -sS -X POST http://127.0.0.1:8787/evaluate \
+  -H 'Content-Type: application/json' \
+  -d '{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount":"900000"}' | jq .
+
+4) Execute (atomically evaluate + record)
+- curl -sS -X POST http://127.0.0.1:8787/execute \
+  -H 'Content-Type: application/json' \
+  -d @examples/intent.sample.json | jq .
+
+5) See usage/headroom
+- npm run cli:status
+
+Minimal integrate (evaluate → send → record)
+- Pseudocode with viem/ethers:
+
+```
+const policyUrl = 'http://127.0.0.1:8787';
+const intent = { chainId: 8453, to, selector, denomination: 'BASE_USDC', amount };
+
+const ev = await fetch(policyUrl + '/evaluate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ intent }) }).then(r => r.json());
+if (ev.action !== 'allow') throw new Error('Denied: ' + ev.reasons.join(','));
+
+// ... send tx with your wallet client ...
+// const txHash = await walletClient.writeContract({ address: to, abi, functionName, args });
+
+await fetch(policyUrl + '/record', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ intent, txHash }) });
+```
+
 ## Features
 - Allowlist (chainId, to, selector)
 - Global pause
@@ -58,6 +97,14 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 ## CLI (after build)
 - npm run cli:simulate -- examples/policy.v0_3.sample.json examples/intent.sample.json
 - npm run cli:status  # shows global and per-target headroom for configured caps
+
+## Troubleshooting
+- NOT_ALLOWLISTED: ensure chainId/to/selector match and addresses are lowercased.
+- CAP_*_EXCEEDED: lower amount or raise caps; check Decision.headroom/target_headroom for remaining.
+- DEADLINE_EXPIRED: set a future deadline_ms.
+- NONCE_GAP_EXCEEDED / NONCE_REGRESSION: align intent.nonce and prev_nonce.
+- SLIPPAGE_EXCEEDED: lower intent.slippage_bps or raise policy.meta.slippage_max_bps.
+- PAUSED: unpause via POST /pause { paused: false } or edit policy and /reload.
 
 ## Policy additions (v0.3)
 - Per-denomination caps via CapAmount (string or per-denom map); defaultDenomination support
