@@ -6,8 +6,10 @@ let decisionCount = 0;
 let allowCount = 0;
 let denyCount = 0;
 
-export async function startServer(opts?: { port?: number; policy: any; policyHash?: string }) {
+export async function startServer(opts?: { port?: number; host?: string; authToken?: string; policy: any; policyHash?: string }) {
   const port = opts?.port ?? 8787;
+  const host = opts?.host ?? '127.0.0.1';
+  const authToken = opts?.authToken;
   const policy = opts?.policy;
   const policyHash = opts?.policyHash ?? computePolicyHash(policy);
   if (!policy) throw new Error('policy required');
@@ -25,6 +27,13 @@ export async function startServer(opts?: { port?: number; policy: any; policyHas
 
   const server = http.createServer(async (req, res) => {
     try {
+      // simple bearer token
+      if (authToken) {
+        const hdr = req.headers['authorization'];
+        const ok = typeof hdr === 'string' && hdr.startsWith('Bearer ') && hdr.slice(7) === authToken;
+        if (!ok) { res.writeHead(401); res.end(); return; }
+      }
+
       if (req.method === 'POST' && req.url === '/evaluate') {
         const body = await readJson(req);
         const dec = await engine.evaluate(body.intent);
@@ -89,7 +98,7 @@ export async function startServer(opts?: { port?: number; policy: any; policyHas
     }
   });
 
-  server.listen(port);
+  server.listen(port, host);
   return { server, engine };
 }
 

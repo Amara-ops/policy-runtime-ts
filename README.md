@@ -10,9 +10,9 @@ It complements CI-time checks from the Policy Linter by enforcing rules at execu
 - Policy Linter Action (GitHub Marketplace Action): https://github.com/Amara-ops/policy-linter-action
 
 ## Quickstart (5 minutes)
-1) Build and run the HTTP sidecar
+1) Build and run the HTTP sidecar (binds to 127.0.0.1 by default)
 - npm i && npm run build
-- node examples/http_server.mjs  # starts http://127.0.0.1:8787 using examples/policy.v0_3.sample.json
+- node examples/http_server.mjs  # http://127.0.0.1:8787
 
 2) Evaluate an intent (allow)
 - curl -sS -X POST http://127.0.0.1:8787/evaluate \
@@ -56,7 +56,7 @@ await fetch(policyUrl + '/record', { method: 'POST', headers: { 'content-type': 
 - Per-target caps (optional): caps.per_target.{h1,d1} keyed by to or to|selector
 - Decision headroom: global and per-target remaining values exposed for observability/debugging
 - JSONL audit logging (append-only)
-- HTTP: policy reload via POST /reload; log rotate via SIGHUP
+- HTTP: policy reload via POST /reload; log rotate via SIGHUP; optional Bearer auth token
 - Observability: GET /metrics (Prometheus text format; minimal baseline)
 - Intent filters (optional): deadline_ms, nonce_max_gap (with intent.nonce/prev_nonce), slippage_max_bps (with intent.slippage_bps)
 
@@ -105,6 +105,7 @@ await fetch(policyUrl + '/record', { method: 'POST', headers: { 'content-type': 
 - NONCE_GAP_EXCEEDED / NONCE_REGRESSION: align intent.nonce and prev_nonce.
 - SLIPPAGE_EXCEEDED: lower intent.slippage_bps or raise policy.meta.slippage_max_bps.
 - PAUSED: unpause via POST /pause { paused: false } or edit policy and /reload.
+- 401 Unauthorized: set Authorization: Bearer <token> header to match the server authToken.
 
 ## Policy additions (v0.3)
 - Per-denomination caps via CapAmount (string or per-denom map); defaultDenomination support
