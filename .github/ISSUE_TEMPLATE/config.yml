@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Alpha onboarding (Discussion)
+    url: https://github.com/Amara-ops/policy-runtime-ts/discussions
+    about: Ask questions, share feedback, and request small improvements during the alpha.

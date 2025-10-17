@@ -1,0 +1,11 @@
+name: Question / Help
+description: Ask a question or request help during alpha
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: Be as specific as possible; include policy/intent snippets if relevant.
+    validations:
+      required: true
