@@ -1,6 +1,6 @@
 import type { CapAmount, CounterStore, Decision, DecisionTargetHeadroom, Intent, Policy } from './types.js';
 import { inAllowlist, validatePolicy } from './policy.js';
-import { toBigIntDecimal } from './util/amount.js';
+import { toBigIntDecimal, humanToBaseUnits } from './util/amount.js';
 import { opId as makeOpId } from './util/id.js';
 import { getDenominationInfo } from './util/denom.js';
 
@@ -42,6 +42,24 @@ export class PolicyEngine {
     this.policyHash = policyHash;
   }
 
+  private resolveAmountBaseUnits(intent: Intent, denom: string): bigint {
+    // Prefer explicit base-unit amount if provided
+    if (intent.amount !== undefined) {
+      const base = toBigIntDecimal(intent.amount);
+      if (intent.amount_human !== undefined) {
+        const di = getDenominationInfo(denom, this.policy.meta?.denominations);
+        const conv = humanToBaseUnits(intent.amount_human, di.decimals);
+        if (conv !== base) throw new Error('AMOUNT_MISMATCH');
+      }
+      return base;
+    }
+    if (intent.amount_human !== undefined) {
+      const di = getDenominationInfo(denom, this.policy.meta?.denominations);
+      return humanToBaseUnits(intent.amount_human, di.decimals);
+    }
+    throw new Error('AMOUNT_REQUIRED');
+  }
+
   async evaluate(intent: Intent, now: number = Date.now()): Promise<Decision> {
     const reasons: string[] = [];
 
@@ -78,7 +96,14 @@ export class PolicyEngine {
     }
 
     const denom = intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
-    const amt = toBigIntDecimal(intent.amount);
+    let amt: bigint;
+    try { amt = this.resolveAmountBaseUnits(intent, denom); }
+    catch (e: any) {
+      const code = e?.message === 'AMOUNT_REQUIRED' ? 'AMOUNT_REQUIRED' : (e?.message === 'AMOUNT_MISMATCH' ? 'AMOUNT_MISMATCH' : 'BAD_AMOUNT');
+      await this.logDecision({ intent, now, decision: 'deny', reasons: [code] });
+      return { action: 'deny', reasons: [code] };
+    }
+
     const _denomInfo = getDenominationInfo(denom, this.policy.meta?.denominations);
 
     // Caps (global per-denomination via CapAmount)
@@ -144,7 +169,17 @@ export class PolicyEngine {
 
   async recordExecution(meta: { intent: Intent; txHash: string; amount?: string }, now: number = Date.now()): Promise<void> {
     const denom = meta.intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
-    const amt = toBigIntDecimal(meta.amount ?? meta.intent.amount);
+    let amt: bigint;
+    if (meta.amount !== undefined) {
+      amt = toBigIntDecimal(meta.amount);
+    } else if (meta.intent.amount !== undefined) {
+      amt = toBigIntDecimal(meta.intent.amount);
+    } else if (meta.intent.amount_human !== undefined) {
+      const di = getDenominationInfo(denom, this.policy.meta?.denominations);
+      amt = humanToBaseUnits(meta.intent.amount_human, di.decimals);
+    } else {
+      throw new Error('AMOUNT_REQUIRED');
+    }
 
     if (this.policy.caps?.max_outflow_h1) {
       await this.store.add(key(this.policyHash, `${denom}:h1`), amt, HOUR_MS, now);

@@ -42,7 +42,8 @@ export interface Intent {
   to: string;         // lowercased 0x-address (contract target)
   selector: string;   // 0x + 4 bytes
   token?: string;     // 0x-address of token (if applicable)
-  amount?: string;    // bigint as decimal string in base units
+  amount?: string;    // base units as a decimal string of digits only
+  amount_human?: string; // optional human-readable decimal string; requires denomination and decimals in policy.meta
   denomination?: Denomination;
   // v0.3 filters (optional)
   deadline_ms?: number; // epoch ms; deny with DEADLINE_EXPIRED if now > deadline
