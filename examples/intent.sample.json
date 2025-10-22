@@ -3,7 +3,7 @@
   "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   "selector": "0xa9059cbb",
   "denomination": "BASE_USDC",
-  "amount": "500",
+  "amount_human": "0.0005",
   "deadline_ms": 1734100000000,
   "nonce": 42,
   "prev_nonce": 42,
