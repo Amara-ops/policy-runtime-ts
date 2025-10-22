@@ -1,26 +1,24 @@
-#!/usr/bin/env node
-import fs from 'node:fs/promises';
-import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../index.js';
+import { readFileSync } from 'node:fs';
+import { PolicyEngine, MemoryCounterStore } from '../index.js';
 import { computePolicyHash } from '../util/policyHash.js';
+import { normalizeAndValidatePolicy } from '../policy.js';
+
+function loadJson(path: string) { return JSON.parse(readFileSync(path, 'utf8')); }
 
 async function main() {
-  const [,, policyPath, intentPath] = process.argv;
+  const [policyPath, intentPath] = process.argv.slice(2);
   if (!policyPath || !intentPath) {
-    console.error('Usage: policy-simulate <policy.json> <intent.json>');
-    process.exit(2);
+    console.error('usage: npm run cli:simulate -- <policy.json> <intent.json>');
+    process.exit(1);
   }
-  const policy = JSON.parse(await fs.readFile(policyPath, 'utf8'));
-  const intent = JSON.parse(await fs.readFile(intentPath, 'utf8'));
-
-  const policyHash = computePolicyHash(policy);
-  const store = new FileCounterStore('./data/counters.json');
-  await store.load();
-  const logger = new JsonlFileLogger('./logs/decisions.jsonl');
-  const engine = new PolicyEngine(store, logger);
-  engine.loadPolicy(policy, policyHash);
-
-  const decision = await engine.evaluate(intent);
-  console.log(JSON.stringify(decision, null, 2));
+  const pRaw = loadJson(policyPath);
+  const p = normalizeAndValidatePolicy(pRaw);
+  const policyHash = computePolicyHash(p);
+  const engine = new PolicyEngine(new MemoryCounterStore());
+  engine.loadPolicy(p, policyHash);
+  const intent = loadJson(intentPath);
+  const dec = await engine.evaluate(intent);
+  console.log(JSON.stringify(dec, null, 2));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

@@ -37,7 +37,7 @@ Minimal integrate (evaluate → send → record)
 
 ```
 const policyUrl = 'http://127.0.0.1:8787';
-const intent = { chainId: 8453, to, selector, denomination: 'BASE_USDC', amount };
+const intent = { chainId: 8453, to, selector, denomination: 'BASE_USDC', amount_human: '1.25' };
 
 const ev = await fetch(policyUrl + '/evaluate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ intent }) }).then(r => r.json());
 if (ev.action !== 'allow') throw new Error('Denied: ' + ev.reasons.join(','));
@@ -107,14 +107,10 @@ await fetch(policyUrl + '/record', { method: 'POST', headers: { 'content-type': 
 - PAUSED: unpause via POST /pause { paused: false } or edit policy and /reload.
 - 401 Unauthorized: set Authorization: Bearer <token> header to match the server authToken.
 
-## Policy additions (v0.3)
-- Per-denomination caps via CapAmount (string or per-denom map); defaultDenomination support
-- Per-target caps caps.per_target.{h1,d1} by to or to|selector
-- Decision target_headroom returns remaining per-target values (h1/d1) when a per-target cap applies
-- HTTP policy reload to support hot updates with hash continuity
-- Log rotate friendly: send SIGHUP to reopen logs
-- Metrics endpoint to expose minimal runtime info for scraping
-- Intent filters: deadline (deadline_ms), nonce gap (meta.nonce_max_gap + intent.nonce/prev_nonce), slippage limit (meta.slippage_max_bps + intent.slippage_bps)
+## Policy additions
+- v0.3.1: per-target caps; nonce/slippage guards; schema tightening
+- v0.3.2: amount_human support in intents; runtime converts using meta.denominations; strict precision; AMOUNT_MISMATCH if both provided mismatch
+- v0.3.3: human caps in policy.json (per-denomination only). The runtime normalizes human caps to base units at load/reload. Top-level global cap strings remain base-units for backward compatibility; prefer per-denomination human caps.
 
 ## References
 - Base mainnet USDC (BASE_USDC) contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
@@ -126,7 +122,7 @@ await fetch(policyUrl + '/record', { method: 'POST', headers: { 'content-type': 
   "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   "selector": "0xa9059cbb",
   "denomination": "BASE_USDC",
-  "amount": "500",
+  "amount_human": "0.0005",
   "deadline_ms": 1734100000000,
   "nonce": 42,
   "prev_nonce": 42,

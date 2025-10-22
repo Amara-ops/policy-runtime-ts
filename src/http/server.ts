@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../index.js';
 import { computePolicyHash } from '../util/policyHash.js';
+import { normalizeAndValidatePolicy } from '../policy.js';
 
 let decisionCount = 0;
 let allowCount = 0;
@@ -10,9 +11,12 @@ export async function startServer(opts?: { port?: number; host?: string; authTok
   const port = opts?.port ?? 8787;
   const host = opts?.host ?? '127.0.0.1';
   const authToken = opts?.authToken;
-  const policy = opts?.policy;
+  const policyRaw = opts?.policy;
+  if (!policyRaw) throw new Error('policy required');
+
+  // v0.3.3: normalize human caps to base units before hashing/loading
+  const policy = normalizeAndValidatePolicy(policyRaw);
   const policyHash = opts?.policyHash ?? computePolicyHash(policy);
-  if (!policy) throw new Error('policy required');
 
   const store = new FileCounterStore('./data/counters.json');
   await store.load();
@@ -69,8 +73,9 @@ export async function startServer(opts?: { port?: number; host?: string; authTok
       }
       if (req.method === 'POST' && req.url === '/reload') {
         const body = await readJson(req);
-        const newPolicy = body.policy;
-        if (!newPolicy) throw new Error('policy missing');
+        const newPolicyRaw = body.policy;
+        if (!newPolicyRaw) throw new Error('policy missing');
+        const newPolicy = normalizeAndValidatePolicy(newPolicyRaw);
         const newHash = computePolicyHash(newPolicy);
         engine.loadPolicy(newPolicy, newHash);
         res.writeHead(200, { 'content-type': 'application/json' });

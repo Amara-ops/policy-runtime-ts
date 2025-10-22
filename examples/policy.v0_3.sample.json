@@ -1,23 +1,24 @@
 {
   "allowlist": [
-    { "chainId": 8453, "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "selector": "0xa9059cbb" }
+    { "chainId": 8453, "to": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "selector": "0xa9059cbb" }
   ],
   "meta": {
     "defaultDenomination": "BASE_USDC",
-    "nonce_max_gap": 1,
-    "slippage_max_bps": 50,
     "denominations": {
-      "BASE_USDC": { "decimals": 6, "chainId": 8453, "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+      "BASE_USDC": { "decimals": 6, "chainId": 8453, "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" },
       "BASE_ETH": { "decimals": 18, "chainId": 8453 }
     }
   },
   "caps": {
-    "max_outflow_h1": { "BASE_USDC": "1000000", "BASE_ETH": "100000000000000000" },
-    "max_outflow_d1": { "BASE_USDC": "2000000", "BASE_ETH": "200000000000000000" },
-    "max_per_function_h1": 2,
+    "max_outflow_h1": { "BASE_USDC": "1.5", "BASE_ETH": "0.05" },
+    "max_outflow_d1": { "BASE_USDC": "3", "BASE_ETH": "0.1" },
     "per_target": {
-      "h1": { "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": "500000" },
-      "d1": { "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913|0xa9059cbb": "800000" }
+      "h1": {
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { "BASE_USDC": "0.8" }
+      },
+      "d1": {
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913|0xa9059cbb": { "BASE_USDC": "1.5" }
+      }
     }
   },
   "pause": false

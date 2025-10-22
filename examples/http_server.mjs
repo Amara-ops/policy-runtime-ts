@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { startServer } from '../dist/http/server.js';
-import fs from 'node:fs/promises';
-import { computePolicyHash } from '../dist/util/policyHash.js';
 
-const policy = JSON.parse(await fs.readFile(new URL('./policy.v0_3.sample.json', import.meta.url)));
-await startServer({ policy, policyHash: computePolicyHash(policy), port: 8787, host: '127.0.0.1' });
-console.log('Policy HTTP server listening on http://127.0.0.1:8787');
+const policyPath = process.env.POLICY_PATH || new URL('./policy.v0_3.sample.json', import.meta.url).pathname;
+
+const policyRaw = JSON.parse(readFileSync(policyPath, 'utf8'));
+
+startServer({ port: 8787, host: '127.0.0.1', policy: policyRaw }).then(({ server }) => {
+  console.log('Policy Runtime listening on http://127.0.0.1:8787');
+  console.log('Policy file:', policyPath);
+  console.log('Press Ctrl+C to stop.');
+}).catch((e) => { console.error(e); process.exit(1); });
