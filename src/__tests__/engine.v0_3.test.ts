@@ -33,7 +33,7 @@ function phash() { return '0x' + '22'.repeat(32); }
 const base: Intent = { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb', denomination: 'BASE_USDC', amount: '1' };
 
 const iUSDC: Intent = { ...base, amount: '500' };
-const iUSDC_human: Intent = { ...base, amount: undefined as any, amount_human: '0.0005' };
+const iUSDC_human: Intent = { ...base, amount: undefined as any, amount_human: '0.0003' }; // 300 base units
 const iETH: Intent = { ...base, denomination: 'BASE_ETH', amount: '50000000000000000' };
 
 test('per-denomination caps isolate usage and human amounts convert correctly', async () => {
@@ -46,7 +46,7 @@ test('per-denomination caps isolate usage and human amounts convert correctly', 
   expect(r0.action).toBe('allow');
   await eng.recordExecution({ intent: iUSDC_human, txHash: '0xhhh' }, now);
 
-  const r1 = await eng.evaluate(iUSDC, now);
+  const r1 = await eng.evaluate(iUSDC, now); // 300 + 500 = 800 (equal to per-target h1)
   expect(r1.action).toBe('allow');
   await eng.recordExecution({ intent: iUSDC, txHash: '0xaaa' }, now);
 
