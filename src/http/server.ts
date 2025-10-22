@@ -7,12 +7,42 @@ let decisionCount = 0;
 let allowCount = 0;
 let denyCount = 0;
 
-export async function startServer(opts?: { port?: number; host?: string; authToken?: string; policy: any; policyHash?: string }) {
+async function pingSidecar(host: string, port: number, authToken?: string): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const req = http.request({ host, port, path: '/metrics', method: 'GET', timeout: 500, headers: authToken ? { 'authorization': `Bearer ${authToken}` } : undefined }, (res) => {
+      // If something is listening and responds (even 401/403), treat as occupied by a sidecar or another service
+      const status = res.statusCode || 0;
+      if (status === 200 || status === 401 || status === 403) {
+        // Optionally check the response body signature for our metrics
+        let buf = '';
+        res.setEncoding('utf8');
+        res.on('data', (c) => { buf += c; });
+        res.on('end', () => {
+          if (status === 200 && buf.includes('policy_runtime_decisions_total')) resolve(true);
+          else resolve(true); // any responder at this path means something is there
+        });
+      } else {
+        resolve(false);
+      }
+    });
+    req.on('timeout', () => { try { req.destroy(); } catch {} resolve(false); });
+    req.on('error', () => resolve(false));
+    req.end();
+  });
+}
+
+export async function startServer(opts?: { port?: number; host?: string; authToken?: string; policy: any; policyHash?: string }): Promise<{ server?: http.Server; engine?: PolicyEngine; alreadyRunning?: boolean }> {
   const port = opts?.port ?? 8787;
   const host = opts?.host ?? '127.0.0.1';
   const authToken = opts?.authToken;
   const policyRaw = opts?.policy;
   if (!policyRaw) throw new Error('policy required');
+
+  // If something is already listening and responds, avoid EADDRINUSE crash and signal to caller
+  const occupied = await pingSidecar(host, port, authToken);
+  if (occupied) {
+    return { alreadyRunning: true };
+  }
 
   // v0.3.3: normalize human caps to base units before hashing/loading
   const policy = normalizeAndValidatePolicy(policyRaw);
@@ -103,7 +133,24 @@ export async function startServer(opts?: { port?: number; host?: string; authTok
     }
   });
 
-  server.listen(port, host);
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', async (err: any) => {
+      if (err?.code === 'EADDRINUSE') {
+        const active = await pingSidecar(host, port, authToken);
+        if (active) return resolve(); // treat as already running; we'll close immediately below and signal
+      }
+      reject(err);
+    });
+    server.listen(port, host, () => resolve());
+  });
+
+  // If right after listen we detect another instance (race), close and signal alreadyRunning
+  const stillOccupied = await pingSidecar(host, port, authToken);
+  if (stillOccupied) {
+    try { server.close(); } catch {}
+    return { alreadyRunning: true };
+  }
+
   return { server, engine };
 }
 

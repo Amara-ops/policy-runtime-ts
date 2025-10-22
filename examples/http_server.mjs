@@ -5,7 +5,11 @@ const policyPath = process.env.POLICY_PATH || new URL('./policy.v0_3.sample.json
 
 const policyRaw = JSON.parse(readFileSync(policyPath, 'utf8'));
 
-startServer({ port: 8787, host: '127.0.0.1', policy: policyRaw }).then(({ server }) => {
+startServer({ port: 8787, host: '127.0.0.1', policy: policyRaw }).then((res) => {
+  if (res?.alreadyRunning) {
+    console.log('Policy Runtime already running at http://127.0.0.1:8787');
+    return;
+  }
   console.log('Policy Runtime listening on http://127.0.0.1:8787');
   console.log('Policy file:', policyPath);
   console.log('Press Ctrl+C to stop.');
