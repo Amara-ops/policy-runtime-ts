@@ -167,11 +167,14 @@ export class PolicyEngine {
     return { action: 'allow', reasons: [], headroom, target_headroom: Object.keys(targetHeadroom).length ? targetHeadroom : undefined };
   }
 
-  async recordExecution(meta: { intent: Intent; txHash: string; amount?: string }, now: number = Date.now()): Promise<void> {
+  async recordExecution(meta: { intent: Intent; txHash: string; amount?: string; amount_human?: string }, now: number = Date.now()): Promise<void> {
     const denom = meta.intent.denomination ?? (this.policy.meta?.defaultDenomination ?? 'BASE_USDC');
     let amt: bigint;
     if (meta.amount !== undefined) {
       amt = toBigIntDecimal(meta.amount);
+    } else if (meta.amount_human !== undefined) {
+      const di = getDenominationInfo(denom, this.policy.meta?.denominations);
+      amt = humanToBaseUnits(meta.amount_human, di.decimals);
     } else if (meta.intent.amount !== undefined) {
       amt = toBigIntDecimal(meta.intent.amount);
     } else if (meta.intent.amount_human !== undefined) {
