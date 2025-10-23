@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { startServer } from '../dist/http/server.js';
 
-const policyPath = process.env.POLICY_PATH || new URL('./policy.v0_3.sample.json', import.meta.url).pathname;
+const policyPath = process.env.POLICY_PATH || new URL('./policy.sample.json', import.meta.url).pathname;
 
 const policyRaw = JSON.parse(readFileSync(policyPath, 'utf8'));
 

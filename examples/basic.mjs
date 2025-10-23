@@ -3,9 +3,21 @@ import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../dist/index.j
 async function main() {
   const policy = {
     allowlist: [
-      { chainId: 8453, to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', selector: '0xa9059cbb' }
+      { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' }
     ],
-    caps: { max_outflow_h1: '1000', max_outflow_d1: '2000' },
+    meta: {
+      schemaVersion: 'v0.3.4',
+      defaultDenomination: 'BASE_USDC',
+      denominations: {
+        BASE_USDC: { decimals: 6, chainId: 8453, address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' }
+      }
+    },
+    caps: {
+      max_outflow_h1: { BASE_USDC: '100' },
+      max_outflow_d1: { BASE_USDC: '500' },
+      max_calls_per_function_h1: 60,
+      max_calls_per_function_d1: 600
+    },
     pause: false
   };
 
@@ -17,10 +29,10 @@ async function main() {
 
   const intent = {
     chainId: 8453,
-    to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     selector: '0xa9059cbb',
     denomination: 'BASE_USDC',
-    amount: '500'
+    amount_human: '50'
   };
 
   console.log('Evaluate #1');

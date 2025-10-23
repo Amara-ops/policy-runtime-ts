@@ -2,7 +2,7 @@ import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../dist/index.j
 import fs from 'node:fs/promises';
 
 async function main() {
-  const policy = JSON.parse(await fs.readFile(new URL('./policy.v0_3.sample.json', import.meta.url)));
+  const policy = JSON.parse(await fs.readFile(new URL('./policy.sample.json', import.meta.url)));
 
   const store = new FileCounterStore('./data/counters.json');
   await store.load();
@@ -15,7 +15,7 @@ async function main() {
     to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     selector: '0xa9059cbb',
     denomination: 'BASE_USDC',
-    amount: '500'
+    amount_human: '1.5'
   };
 
   console.log('Decision USDC');
@@ -28,7 +28,7 @@ async function main() {
     to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     selector: '0xa9059cbb',
     denomination: 'BASE_ETH',
-    amount: '50000000000000000'
+    amount_human: '0.05'
   };
 
   console.log('Decision ETH');
