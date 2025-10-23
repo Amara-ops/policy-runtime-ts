@@ -95,52 +95,58 @@ export function normalizeAndValidatePolicy(policy: unknown): Policy {
     return d.decimals;
   }
   function toBaseStringHumanAware(v: string, denom: string): string {
-    // For per-denomination entries, treat all numeric strings as human amounts and convert using decimals.
-    // This avoids interpreting "100" as 100 base units when the intent is $100.
     if (!/^\d+(\.\d+)?$/.test(v)) throw new Error(`invalid cap amount for ${denom}`);
     return humanToBaseUnits(v, decimalsFor(denom)).toString();
   }
-  function normalizeCapAmount(cap: any): any {
+  function normalizeCapAmount(cap: any, mode: 'denom'|'target'): any {
     if (cap === undefined || cap === null) return cap;
     if (typeof cap === 'string') return cap; // legacy base-units string stays as-is
-    // cap is object: keys -> denom or target; values -> string or per-denom map
     const out: Record<string, any> = {};
     for (const k of Object.keys(cap)) {
       const v = cap[k];
-      if (typeof v === 'string') {
-        // This branch occurs for per_target maps; here k is a target key, and v is a global base-units string; keep as-is
-        out[k] = v;
-      } else if (v && typeof v === 'object') {
-        // per-denomination map under key k
-        const sub = v as Record<string, any>;
-        const flat: Record<string, string> = {};
-        for (const denom of Object.keys(sub)) {
-          const vv = sub[denom];
-          if (typeof vv === 'string') {
+      if (mode === 'denom') {
+        // Keys are denominations; values must be numeric strings or nested per-denom maps
+        if (typeof v === 'string') {
+          out[k] = toBaseStringHumanAware(v, k);
+        } else if (v && typeof v === 'object') {
+          const sub = v as Record<string, any>;
+          const flat: Record<string, string> = {};
+          for (const denom of Object.keys(sub)) {
+            const vv = sub[denom];
+            if (typeof vv !== 'string') throw new Error(`invalid nested cap for ${denom}`);
             flat[denom] = toBaseStringHumanAware(vv, denom);
-          } else if (vv && typeof vv === 'object') {
-            // nested again; try vv[denom]
-            const leaf = vv[denom];
-            if (typeof leaf !== 'string') throw new Error(`invalid nested cap for ${denom}`);
-            flat[denom] = toBaseStringHumanAware(leaf, denom);
-          } else {
-            throw new Error(`invalid cap value for ${denom}`);
           }
+          out[k] = flat;
+        } else {
+          throw new Error(`invalid cap value for ${k}`);
         }
-        out[k] = flat;
       } else {
-        throw new Error('invalid cap structure');
+        // mode === 'target': keys are target keys; value can be base-units string OR per-denom map
+        if (typeof v === 'string') {
+          out[k] = v; // already base units for that target
+        } else if (v && typeof v === 'object') {
+          const sub = v as Record<string, any>;
+          const flat: Record<string, string> = {};
+          for (const denom of Object.keys(sub)) {
+            const vv = sub[denom];
+            if (typeof vv !== 'string') throw new Error(`invalid cap value for ${denom}`);
+            flat[denom] = toBaseStringHumanAware(vv, denom);
+          }
+          out[k] = flat;
+        } else {
+          throw new Error('invalid cap structure');
+        }
       }
     }
     return out;
   }
 
   if (p.caps) {
-    if (p.caps.max_outflow_h1 && typeof p.caps.max_outflow_h1 === 'object') p.caps.max_outflow_h1 = normalizeCapAmount(p.caps.max_outflow_h1);
-    if (p.caps.max_outflow_d1 && typeof p.caps.max_outflow_d1 === 'object') p.caps.max_outflow_d1 = normalizeCapAmount(p.caps.max_outflow_d1);
+    if (p.caps.max_outflow_h1 && typeof p.caps.max_outflow_h1 === 'object') p.caps.max_outflow_h1 = normalizeCapAmount(p.caps.max_outflow_h1, 'denom');
+    if (p.caps.max_outflow_d1 && typeof p.caps.max_outflow_d1 === 'object') p.caps.max_outflow_d1 = normalizeCapAmount(p.caps.max_outflow_d1, 'denom');
     if (p.caps.per_target) {
-      if (p.caps.per_target.h1) p.caps.per_target.h1 = normalizeCapAmount(p.caps.per_target.h1);
-      if (p.caps.per_target.d1) p.caps.per_target.d1 = normalizeCapAmount(p.caps.per_target.d1);
+      if (p.caps.per_target.h1) p.caps.per_target.h1 = normalizeCapAmount(p.caps.per_target.h1, 'target');
+      if (p.caps.per_target.d1) p.caps.per_target.d1 = normalizeCapAmount(p.caps.per_target.d1, 'target');
     }
   }
   return p;
