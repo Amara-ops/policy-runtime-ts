@@ -11,7 +11,10 @@ export type CapAmount = string | Record<string, string>; // string = global; rec
 export interface CapsConfig {
   max_outflow_h1?: CapAmount; // bigint as decimal string in base units (per denomination)
   max_outflow_d1?: CapAmount; // bigint as decimal string in base units (per denomination)
-  max_per_function_h1?: number; // optional count cap per selector per hour
+  // Aliases: accept new names while keeping old fields for compatibility
+  max_per_function_h1?: number; // DEPRECATED alias of max_calls_per_function_h1
+  max_calls_per_function_h1?: number; // preferred: count cap per selector per hour
+  max_calls_per_function_d1?: number; // new: count cap per selector per day
   // v0.3 additions (optional, backward-compatible)
   per_target?: {
     h1?: Record<string, CapAmount>; // key = to or to|selector, value CapAmount (string or per-denom map)
@@ -58,6 +61,7 @@ export interface DecisionHeadroom {
   h1?: string; // remaining in base units (may be negative if exceeded)
   d1?: string;
   per_fn_h1?: number; // remaining count
+  per_fn_d1?: number; // remaining count (daily)
 }
 
 export interface DecisionTargetHeadroomDetail { key: string; remaining: string; }

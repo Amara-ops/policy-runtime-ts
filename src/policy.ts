@@ -47,10 +47,12 @@ export function validatePolicy(policy: unknown): Policy {
         type: 'object',
         additionalProperties: true,
         properties: {
-          // Top-level string remains base-units only (legacy). Human strings allowed only in per-denomination maps.
           max_outflow_h1: { anyOf: [ baseUnits, { type: 'object', additionalProperties: perDenomMap } ] },
           max_outflow_d1: { anyOf: [ baseUnits, { type: 'object', additionalProperties: perDenomMap } ] },
+          // Accept both old and new keys
           max_per_function_h1: { type: 'integer', minimum: 1 },
+          max_calls_per_function_h1: { type: 'integer', minimum: 1 },
+          max_calls_per_function_d1: { type: 'integer', minimum: 1 },
           per_target: {
             type: 'object',
             additionalProperties: false,
@@ -84,7 +86,7 @@ export function validatePolicy(policy: unknown): Policy {
   return p;
 }
 
-// v0.3.3: normalize human caps to base units using meta.denominations
+// v0.3.4: normalize human caps to base units using meta.denominations; accept aliases
 export function normalizeAndValidatePolicy(policy: unknown): Policy {
   const p = validatePolicy(policy);
   const reg = p.meta?.denominations || {};
@@ -105,7 +107,6 @@ export function normalizeAndValidatePolicy(policy: unknown): Policy {
     for (const k of Object.keys(cap)) {
       const v = cap[k];
       if (mode === 'denom') {
-        // Keys are denominations; values must be numeric strings or nested per-denom maps
         if (typeof v === 'string') {
           out[k] = toBaseStringHumanAware(v, k);
         } else if (v && typeof v === 'object') {
@@ -121,7 +122,6 @@ export function normalizeAndValidatePolicy(policy: unknown): Policy {
           throw new Error(`invalid cap value for ${k}`);
         }
       } else {
-        // mode === 'target': keys are target keys; value can be base-units string OR per-denom map
         if (typeof v === 'string') {
           out[k] = v; // already base units for that target
         } else if (v && typeof v === 'object') {
@@ -144,6 +144,13 @@ export function normalizeAndValidatePolicy(policy: unknown): Policy {
   if (p.caps) {
     if (p.caps.max_outflow_h1 && typeof p.caps.max_outflow_h1 === 'object') p.caps.max_outflow_h1 = normalizeCapAmount(p.caps.max_outflow_h1, 'denom');
     if (p.caps.max_outflow_d1 && typeof p.caps.max_outflow_d1 === 'object') p.caps.max_outflow_d1 = normalizeCapAmount(p.caps.max_outflow_d1, 'denom');
+
+    // Alias handling: prefer new keys if set
+    const calls_h1 = (p.caps as any).max_calls_per_function_h1 ?? p.caps.max_per_function_h1;
+    const calls_d1 = (p.caps as any).max_calls_per_function_d1;
+    (p.caps as any).max_calls_per_function_h1 = calls_h1;
+    (p.caps as any).max_calls_per_function_d1 = calls_d1;
+
     if (p.caps.per_target) {
       if (p.caps.per_target.h1) p.caps.per_target.h1 = normalizeCapAmount(p.caps.per_target.h1, 'target');
       if (p.caps.per_target.d1) p.caps.per_target.d1 = normalizeCapAmount(p.caps.per_target.d1, 'target');
