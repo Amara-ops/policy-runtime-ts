@@ -22,6 +22,7 @@ let server: http.Server;
 
 beforeAll(async () => {
   const res = await startServer({ policy: policy1, policyHash: computePolicyHash(policy1) });
+  if (!res.server) throw new Error('server failed to start');
   server = res.server;
 });
 
