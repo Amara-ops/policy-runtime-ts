@@ -1,4 +1,5 @@
 import http from 'node:http';
+import path from 'node:path';
 import { PolicyEngine, FileCounterStore, JsonlFileLogger } from '../index.js';
 import { computePolicyHash } from '../util/policyHash.js';
 import { normalizeAndValidatePolicy } from '../policy.js';
@@ -10,17 +11,12 @@ let denyCount = 0;
 async function pingSidecar(host: string, port: number, authToken?: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const req = http.request({ host, port, path: '/metrics', method: 'GET', timeout: 500, headers: authToken ? { 'authorization': `Bearer ${authToken}` } : undefined }, (res) => {
-      // If something is listening and responds (even 401/403), treat as occupied by a sidecar or another service
       const status = res.statusCode || 0;
       if (status === 200 || status === 401 || status === 403) {
-        // Optionally check the response body signature for our metrics
         let buf = '';
         res.setEncoding('utf8');
         res.on('data', (c) => { buf += c; });
-        res.on('end', () => {
-          if (status === 200 && buf.includes('policy_runtime_decisions_total')) resolve(true);
-          else resolve(true); // any responder at this path means something is there
-        });
+        res.on('end', () => { resolve(true); });
       } else {
         resolve(false);
       }
@@ -31,41 +27,50 @@ async function pingSidecar(host: string, port: number, authToken?: string): Prom
   });
 }
 
-export async function startServer(opts?: { port?: number; host?: string; authToken?: string; policy: any; policyHash?: string }): Promise<{ server?: http.Server; engine?: PolicyEngine; alreadyRunning?: boolean }> {
+export async function startServer(opts?: { port?: number; host?: string; authToken?: string; policy: any; policyHash?: string; logsPath?: string }): Promise<{ server?: http.Server; engine?: PolicyEngine; alreadyRunning?: boolean; logsPath?: string }> {
   const port = opts?.port ?? 8787;
   const host = opts?.host ?? '127.0.0.1';
   const authToken = opts?.authToken;
   const policyRaw = opts?.policy;
+  const logsPath = path.resolve(opts?.logsPath || process.env.POLICY_RUNTIME_LOG_PATH || './logs/decisions.jsonl');
   if (!policyRaw) throw new Error('policy required');
 
-  // If something is already listening and responds, avoid EADDRINUSE crash and signal to caller
   const occupied = await pingSidecar(host, port, authToken);
   if (occupied) {
     return { alreadyRunning: true };
   }
 
-  // v0.3.3: normalize human caps to base units before hashing/loading
   const policy = normalizeAndValidatePolicy(policyRaw);
   const policyHash = opts?.policyHash ?? computePolicyHash(policy);
 
   const store = new FileCounterStore('./data/counters.json');
   await store.load();
-  const logger = new JsonlFileLogger('./logs/decisions.jsonl');
+  const logger = new JsonlFileLogger(logsPath);
   const engine = new PolicyEngine(store, logger);
   engine.loadPolicy(policy, policyHash);
 
-  // Handle SIGHUP for log rotation
   try {
     process.on('SIGHUP', () => { try { (logger as any).reopen?.(); } catch {} });
   } catch {}
 
   const server = http.createServer(async (req, res) => {
     try {
-      // simple bearer token
       if (authToken) {
         const hdr = req.headers['authorization'];
         const ok = typeof hdr === 'string' && hdr.startsWith('Bearer ') && hdr.slice(7) === authToken;
         if (!ok) { res.writeHead(401); res.end(); return; }
+      }
+
+      if (req.method === 'GET' && req.url === '/status') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, policyHash, paused: !!engine['policy']?.pause, decisions_total: decisionCount, allow_total: allowCount, deny_total: denyCount, logs_path: logsPath }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/reopen_logs') {
+        (logger as any).reopen?.();
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
       }
 
       if (req.method === 'POST' && req.url === '/evaluate') {
@@ -119,8 +124,8 @@ export async function startServer(opts?: { port?: number; host?: string; authTok
         txt += `policy_runtime_decisions_total ${decisionCount}\n`;
         txt += '# HELP policy_runtime_decisions_by_action_total Decisions by action\n';
         txt += '# TYPE policy_runtime_decisions_by_action_total counter\n';
-        txt += `policy_runtime_decisions_by_action_total{action="allow"} ${allowCount}\n`;
-        txt += `policy_runtime_decisions_by_action_total{action="deny"} ${denyCount}\n`;
+        txt += `policy_runtime_decisions_by_action_total{action=\"allow\"} ${allowCount}\n`;
+        txt += `policy_runtime_decisions_by_action_total{action=\"deny\"} ${denyCount}\n`;
         res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' });
         res.end(txt);
         return;
@@ -140,7 +145,7 @@ export async function startServer(opts?: { port?: number; host?: string; authTok
         const active = await pingSidecar(host, port, authToken);
         if (active) {
           addrInUse = true;
-          return resolve(); // treat as already running
+          return resolve();
         }
       }
       reject(err);
@@ -150,10 +155,10 @@ export async function startServer(opts?: { port?: number; host?: string; authTok
 
   if (addrInUse) {
     try { server.close(); } catch {}
-    return { alreadyRunning: true };
+    return { alreadyRunning: true, logsPath };
   }
 
-  return { server, engine };
+  return { server, engine, logsPath };
 }
 
 function readJson(req: http.IncomingMessage): Promise<any> {
