@@ -95,7 +95,8 @@ export function normalizeAndValidatePolicy(policy: unknown): Policy {
     return d.decimals;
   }
   function toBaseStringHumanAware(v: string, denom: string): string {
-    if (/^\d+$/.test(v)) return v; // already base units
+    // For per-denomination entries, treat all numeric strings as human amounts and convert using decimals.
+    // This avoids interpreting "100" as 100 base units when the intent is $100.
     if (!/^\d+(\.\d+)?$/.test(v)) throw new Error(`invalid cap amount for ${denom}`);
     return humanToBaseUnits(v, decimalsFor(denom)).toString();
   }
