@@ -133,20 +133,22 @@ export async function startServer(opts?: { port?: number; host?: string; authTok
     }
   });
 
+  let addrInUse = false;
   await new Promise<void>((resolve, reject) => {
     server.once('error', async (err: any) => {
       if (err?.code === 'EADDRINUSE') {
         const active = await pingSidecar(host, port, authToken);
-        if (active) return resolve(); // treat as already running; we'll close immediately below and signal
+        if (active) {
+          addrInUse = true;
+          return resolve(); // treat as already running
+        }
       }
       reject(err);
     });
     server.listen(port, host, () => resolve());
   });
 
-  // If right after listen we detect another instance (race), close and signal alreadyRunning
-  const stillOccupied = await pingSidecar(host, port, authToken);
-  if (stillOccupied) {
+  if (addrInUse) {
     try { server.close(); } catch {}
     return { alreadyRunning: true };
   }
