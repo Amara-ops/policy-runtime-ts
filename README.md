@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/Amara-ops/policy-runtime-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/Amara-ops/policy-runtime-ts/actions/workflows/ci.yml)
 
-What this is
-- An HTTP sidecar that enforces explicit, auditable guardrails (allowlist + spend/rate caps) for any agent or wallet.
+## What this is
+- An HTTP sidecar that enforces explicit, auditable guardrails for any agent or wallet.
 - You send an Intent; it replies allow/deny and logs every decision. This reduces blast radius, prevents runaway spend, and creates a clear audit trail.
 - Designed to be simple to reason about and easy to gate in CI: policies are just JSON; decisions are deterministic and logged.
 
@@ -15,34 +15,36 @@ What this is
 ## Quick start
 1) Build and run the HTTP sidecar
 - npm i && npm run build
-- AUTH_TOKEN=changeme node examples/http_server.mjs
+- node examples/http_server.mjs  
   (Server listens on http://127.0.0.1:8787)
 
 2) Evaluate an intent (allow)
-- curl -sS -X POST http://127.0.0.1:8787/evaluate -H 'authorization: Bearer changeme' -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"}}' | jq .
+- curl -sS -X POST http://127.0.0.1:8787/evaluate -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"}}' | jq .
 
 3) Send your transaction (with your wallet client)
 
 4) Record the execution
-- curl -sS -X POST http://127.0.0.1:8787/record -H 'authorization: Bearer changeme' -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"},"txHash":"0xREPLACE_WITH_YOUR_TX_HASH"}'
+- curl -sS -X POST http://127.0.0.1:8787/record -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"},"txHash":"0xREPLACE_WITH_YOUR_TX_HASH"}'
 
 5) Observe
-- curl -sS http://127.0.0.1:8787/metrics -H 'authorization: Bearer changeme'
+- curl -sS http://127.0.0.1:8787/metrics
 - npm run cli:status
 
 ## Define a policy (explanatory)
 - allowlist: Array of { chainId, to, selector }. Requests must match one entry.
 - caps:
   - max_outflow_h1 / max_outflow_d1: Monetary limits per denomination per hour/day. Use per‑denomination maps to write human amounts:
+  ```
   {
     "max_outflow_h1": { "BASE_USDC": "100" },
     "max_outflow_d1": { "BASE_USDC": "500" }
   }
+  ```
     Runtime converts to base units using meta.denominations[denom].decimals.
   - per_target.h1 / per_target.d1: Monetary limits scoped to a target key:
-    - Key formats: "<to>" (aggregate per contract) or "<to>|<selector>" (per function on that contract).
+    - Key formats: "\<to\>" (aggregate per contract) or "\<to\>|\<selector\>" (per function on that contract).
     - Values: base‑units string or per‑denomination map using human strings (preferred).
-  - max_calls_per_function_h1 / max_calls_per_function_d1: Call‑count limits per 4‑byte selector (integers). Alias accepted on input: max_per_function_h1.
+  - max_calls_per_function_h1 / max_calls_per_function_d1: Call‑count limits per 4‑byte selector (integers).
 - pause: If true, all requests are denied with PAUSED.
 - meta:
   - denominations: Map denomination name to { decimals, chainId?, address? }.
@@ -58,7 +60,7 @@ What this is
 - Given (to, selector): first check per_target["to|selector"], else fall back to per_target["to"].
 
 ## Function meaning
-- "Function" means a 4‑byte selector across all contracts. max_calls_per_function_* limits total requests for that selector per hour/day, globally.
+- "Function" means a 4‑byte selector across all contracts. max_calls_per_function_h1 or max_calls_per_function_d1 limits total requests for that selector per hour/day, globally.
 
 ## Human amounts and denominations
 - Any monetary cap written as a per‑denomination map uses human strings and is normalized to base units at load time.
@@ -66,15 +68,16 @@ What this is
 - Intent.amount_human follows the same decimals; precision beyond decimals is rejected.
 
 ## Use with the Policy Linter
-- Validate your `policy.json` before loading it into the runtime to catch schema and safety issues early.
-- Recommended flow: edit policy → run the linter → commit/CI gate → `POST /reload` into the runtime.
+- See: https://github.com/Amara-ops/agent-guardrails-policy-linter
+- Validate your `policy.json` with the linter before loading it into the runtime to catch schema and safety issues early.
+- Recommended flow: edit policy → run the linter → commit/CI gate → (re)start the runtime (or `POST /reload`).
 - GitHub Action: `agent-guardrails-policy-linter` provides a composite action to block merges on errors.
 - CLI example (from the linter repo):
   - npm run build
   - node dist/cli.js path/to/policy.json --report report.json [--sarif report.sarif]
 
 ## Auth
-- If AUTH_TOKEN is set when starting the server, all HTTP endpoints require header: authorization: Bearer <token>.
+- If AUTH_TOKEN is set when starting the server, all HTTP endpoints require header: authorization: Bearer \<token\>.
 - If AUTH_TOKEN is not set, auth is disabled for local development only. Do not run without auth in shared or production environments.
 
 ## HTTP endpoints
@@ -97,6 +100,3 @@ What this is
 ## Changelog highlights
 - v0.3.3: Human caps in policy.json (per‑denomination), normalization at load time.
 - v0.3.4: Aliases max_calls_per_function_{h1,d1}; per‑denomination normalization clarified; daily call caps supported.
-
-Naming note
-- This repository is the TypeScript implementation of the runtime (hence "TS"). In docs and conversations, "Policy Runtime Engine" is the preferred product name. Other language implementations may exist in the future.
