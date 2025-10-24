@@ -2,8 +2,10 @@
 
 [![CI](https://github.com/Amara-ops/policy-runtime-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/Amara-ops/policy-runtime-ts/actions/workflows/ci.yml)
 
-## What this is
-- HTTP sidecar that enforces spending and rate limits for your agent/wallet. You send an Intent; it replies allow/deny and logs every decision.
+What this is
+- An HTTP sidecar that enforces explicit, auditable guardrails (allowlist + spend/rate caps) for any agent or wallet.
+- You send an Intent; it replies allow/deny and logs every decision. This reduces blast radius, prevents runaway spend, and creates a clear audit trail.
+- Designed to be simple to reason about and easy to gate in CI: policies are just JSON; decisions are deterministic and logged.
 
 ## Core concepts
 - Allowlist: Which contract (to) + function (selector) on which chainId are permitted.
@@ -13,19 +15,19 @@
 ## Quick start
 1) Build and run the HTTP sidecar
 - npm i && npm run build
-- node examples/http_server.mjs  
+- AUTH_TOKEN=changeme node examples/http_server.mjs
   (Server listens on http://127.0.0.1:8787)
 
 2) Evaluate an intent (allow)
-- curl -sS -X POST http://127.0.0.1:8787/evaluate -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"}}' | jq .
+- curl -sS -X POST http://127.0.0.1:8787/evaluate -H 'authorization: Bearer changeme' -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"}}' | jq .
 
 3) Send your transaction (with your wallet client)
 
 4) Record the execution
-- curl -sS -X POST http://127.0.0.1:8787/record -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"},"txHash":"0xREPLACE_WITH_YOUR_TX_HASH"}'
+- curl -sS -X POST http://127.0.0.1:8787/record -H 'authorization: Bearer changeme' -H 'content-type: application/json' -d '{"intent":{"chainId":8453,"to":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","selector":"0xa9059cbb","denomination":"BASE_USDC","amount_human":"1"},"txHash":"0xREPLACE_WITH_YOUR_TX_HASH"}'
 
 5) Observe
-- curl -sS http://127.0.0.1:8787/metrics
+- curl -sS http://127.0.0.1:8787/metrics -H 'authorization: Bearer changeme'
 - npm run cli:status
 
 ## Define a policy (explanatory)
@@ -63,6 +65,18 @@
 - Top‑level cap strings (without a map) are treated as base units for backward compatibility.
 - Intent.amount_human follows the same decimals; precision beyond decimals is rejected.
 
+## Use with the Policy Linter
+- Validate your `policy.json` before loading it into the runtime to catch schema and safety issues early.
+- Recommended flow: edit policy → run the linter → commit/CI gate → `POST /reload` into the runtime.
+- GitHub Action: `agent-guardrails-policy-linter` provides a composite action to block merges on errors.
+- CLI example (from the linter repo):
+  - npm run build
+  - node dist/cli.js path/to/policy.json --report report.json [--sarif report.sarif]
+
+## Auth
+- If AUTH_TOKEN is set when starting the server, all HTTP endpoints require header: authorization: Bearer <token>.
+- If AUTH_TOKEN is not set, auth is disabled for local development only. Do not run without auth in shared or production environments.
+
 ## HTTP endpoints
 - POST /evaluate { intent }
 - POST /record { intent, txHash, amount? }
@@ -71,10 +85,6 @@
 - POST /pause { paused }
 - GET /status
 - GET /metrics
-
-## Auth
-- If AUTH_TOKEN is set when starting the server, all HTTP endpoints require header: authorization: Bearer \<token\>.
-- If AUTH_TOKEN is not set, auth is disabled for local development only. Do not run without auth in shared or production environments.
 
 ## Troubleshooting
 - 401/403: Missing or wrong Bearer token when AUTH_TOKEN is enabled.
@@ -87,3 +97,6 @@
 ## Changelog highlights
 - v0.3.3: Human caps in policy.json (per‑denomination), normalization at load time.
 - v0.3.4: Aliases max_calls_per_function_{h1,d1}; per‑denomination normalization clarified; daily call caps supported.
+
+Naming note
+- This repository is the TypeScript implementation of the runtime (hence "TS"). In docs and conversations, "Policy Runtime Engine" is the preferred product name. Other language implementations may exist in the future.
