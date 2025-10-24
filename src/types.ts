@@ -1,4 +1,4 @@
-export type Denomination = 'BASE_USDC' | string; // v0.3: allow additional denominations via registry
+export type Denomination = string; // v0.3.5: symbol-only keys (e.g., USDC)
 
 export interface AllowEntry {
   chainId: number;
@@ -6,31 +6,30 @@ export interface AllowEntry {
   selector: string; // 0x + 4 bytes
 }
 
-export type CapAmount = string | Record<string, string>; // string = global; record = per-denomination
+export type CapAmount = string | Record<string, string>; // string = global; record = per-denomination (by symbol)
 
 export interface CapsConfig {
-  max_outflow_h1?: CapAmount; // bigint as decimal string in base units (per denomination)
-  max_outflow_d1?: CapAmount; // bigint as decimal string in base units (per denomination)
+  max_outflow_h1?: CapAmount; // bigint base units, or per-symbol map of human strings (normalized at load)
+  max_outflow_d1?: CapAmount;
   // Aliases: accept new names while keeping old fields for compatibility
   max_per_function_h1?: number; // DEPRECATED alias of max_calls_per_function_h1
-  max_calls_per_function_h1?: number; // preferred: count cap per selector per hour
-  max_calls_per_function_d1?: number; // new: count cap per selector per day
-  // v0.3 additions (optional, backward-compatible)
+  max_calls_per_function_h1?: number;
+  max_calls_per_function_d1?: number;
   per_target?: {
-    h1?: Record<string, CapAmount>; // key = to or to|selector, value CapAmount (string or per-denom map)
+    h1?: Record<string, CapAmount>; // key = to or to|selector; value string (base) or per-symbol human map
     d1?: Record<string, CapAmount>;
   };
 }
 
 export interface PolicyMeta {
   schemaVersion?: string;
-  // v0.3: denomination registry (symbol -> decimals); default BASE_USDC:6
-  denominations?: Record<string, { decimals: number; chainId?: number; address?: string }>; 
-  defaultDenomination?: string; // default if intent omits denomination
-  // v0.3: optional nonce gap guard (EOA-style sequential nonces)
-  nonce_max_gap?: number; // allow replacements (same nonce), deny regressions and jumps > gap
-  // v0.3: optional max slippage in basis points
-  slippage_max_bps?: number; // deny if intent.slippage_bps > slippage_max_bps
+  // v0.3.5: tokens registry path (preferred), or env TOKENS_CONFIG_PATH
+  tokens_registry_path?: string;
+  // Deprecated fields (kept for back-compat; linter warns)
+  denominations?: Record<string, { decimals: number; chainId?: number; address?: string }>;
+  defaultDenomination?: string; // no longer needed; intents should specify symbol; fallback used if present
+  nonce_max_gap?: number;
+  slippage_max_bps?: number;
 }
 
 export interface Policy {
@@ -42,26 +41,25 @@ export interface Policy {
 
 export interface Intent {
   chainId: number;
-  to: string;         // lowercased 0x-address (contract target)
-  selector: string;   // 0x + 4 bytes
-  token?: string;     // 0x-address of token (if applicable)
-  amount?: string;    // base units as a decimal string of digits only
-  amount_human?: string; // optional human-readable decimal string; requires denomination and decimals in policy.meta
-  denomination?: Denomination;
-  // v0.3 filters (optional)
-  deadline_ms?: number; // epoch ms; deny with DEADLINE_EXPIRED if now > deadline
-  nonce?: number;       // current tx nonce proposed by the executor
-  prev_nonce?: number;  // last submitted nonce observed by the executor
-  slippage_bps?: number; // slippage or maxDeviation provided by caller, basis points
+  to: string;
+  selector: string;
+  token?: string;
+  amount?: string;    // base units
+  amount_human?: string; // human units
+  denomination?: Denomination; // symbol (e.g., USDC)
+  deadline_ms?: number;
+  nonce?: number;
+  prev_nonce?: number;
+  slippage_bps?: number;
 }
 
 export type DecisionAction = 'allow' | 'deny' | 'escalate';
 
 export interface DecisionHeadroom {
-  h1?: string; // remaining in base units (may be negative if exceeded)
+  h1?: string;
   d1?: string;
-  per_fn_h1?: number; // remaining count
-  per_fn_d1?: number; // remaining count (daily)
+  per_fn_h1?: number;
+  per_fn_d1?: number;
 }
 
 export interface DecisionTargetHeadroomDetail { key: string; remaining: string; }
@@ -76,7 +74,7 @@ export interface Decision {
 
 export interface CounterWindow {
   used: bigint;
-  windowStart: number; // epoch ms bucket start
+  windowStart: number;
 }
 
 export interface CounterStore {
