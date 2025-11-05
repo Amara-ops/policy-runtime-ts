@@ -154,7 +154,7 @@ export class PolicyEngine {
       const w = await this.store.getWindow(key(this.policyHash, `${d1Target.keySuffix}:d1`), DAY_MS, now);
       const used = w.used + amt;
       const remaining = d1Target.limit - used;
-      targetHeadroom.d1 = { key: h1Target.rawKey!, remaining: remaining.toString() };
+      targetHeadroom.d1 = { key: d1Target.rawKey!, remaining: remaining.toString() };
       if (used > d1Target.limit) reasons.push('CAP_TARGET_D1_EXCEEDED');
     }
 

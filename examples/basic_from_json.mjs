@@ -14,7 +14,7 @@ async function main() {
     chainId: 8453,
     to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     selector: '0xa9059cbb',
-    denomination: 'BASE_USDC',
+    denomination: 'USDC',
     amount_human: '1.5'
   };
 
@@ -27,7 +27,7 @@ async function main() {
     chainId: 8453,
     to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     selector: '0xa9059cbb',
-    denomination: 'BASE_ETH',
+    denomination: 'ETH',
     amount_human: '0.05'
   };
 

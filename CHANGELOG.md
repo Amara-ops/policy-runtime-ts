@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.5 - 2025-11-05
+- Symbol-based denominations (e.g., USDC, ETH). Decimals resolved via token registry (meta.tokens_registry_path or env TOKENS_CONFIG_PATH; fallback config/tokens.json).
+- Backward compatibility: legacy meta.denominations and BASE_USDC still accepted; defaultDenomination honored if present.
+- Per-target headroom: when both to and to|selector limits exist, returned target_headroom.key now prefers the more specific to|selector.
+- Policy normalization: human caps converted using legacy decimals when available; otherwise left human for engine-time conversion using registry.
+- Examples updated to use symbol keys and tokens_registry_path.
+
 ## v0.3.4 - 2025-10-24
 - Human-amount caps with per‑denomination normalization at load time; top‑level strings remain base units for backward compat.
 - Added `max_calls_per_function_h1` (alias for `max_per_function_h1`) and new `max_calls_per_function_d1` for daily call caps.
