@@ -96,9 +96,6 @@
 - DEADLINE_/NONCE_/SLIPPAGE_: adjust intent or meta.*.
 - PAUSED: unpause via /pause or reload with pause=false.
 
-## Changelog highlights
-- v0.3.3: Human caps in policy.json (per‑denomination), normalization at load time.
-- v0.3.4: Aliases max_calls_per_function_{h1,d1}; per‑denomination normalization clarified; daily call caps supported.
 
 Naming note
 - This repository is the TypeScript implementation of the runtime (hence "TS"). In docs and conversations, "Policy Runtime Engine" is the preferred product name. Other language implementations may exist in the future.
