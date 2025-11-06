@@ -8,8 +8,9 @@ const basePolicy = {
   allowlist: [
     { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' }
   ],
-  caps: { max_outflow_h1: '1000', max_outflow_d1: '2000', max_per_function_h1: 2 },
-  pause: false
+  caps: { max_outflow_h1: { BASE_USDC: '1000' }, max_outflow_d1: { BASE_USDC: '2000' }, max_per_function_h1: 2 },
+  pause: false,
+  meta: { defaultDenomination: 'BASE_USDC' }
 };
 
 const intent: Intent = {

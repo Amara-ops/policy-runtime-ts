@@ -5,15 +5,17 @@ import { computePolicyHash } from '../util/policyHash.js';
 
 declare const test: any, expect: any, beforeAll: any, afterAll: any;
 
+const TEST_PORT = 8799;
+
 const policy1 = {
   allowlist: [ { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' } ],
-  caps: { max_outflow_h1: '1000' },
+  caps: { max_outflow_h1: { BASE_USDC: '1000' } },
   pause: false,
   meta: { defaultDenomination: 'BASE_USDC' }
 };
 const policy2 = {
   allowlist: [ { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' } ],
-  caps: { max_outflow_h1: '2000' },
+  caps: { max_outflow_h1: { BASE_USDC: '2000' } },
   pause: true,
   meta: { defaultDenomination: 'BASE_USDC' }
 };
@@ -21,7 +23,7 @@ const policy2 = {
 let server: http.Server;
 
 beforeAll(async () => {
-  const res = await startServer({ policy: policy1, policyHash: computePolicyHash(policy1) });
+  const res = await startServer({ policy: policy1, policyHash: computePolicyHash(policy1), port: TEST_PORT, host: '127.0.0.1' });
   if (!res.server) throw new Error('server failed to start');
   server = res.server;
 });
@@ -31,11 +33,11 @@ afterAll(async () => {
 });
 
 async function post(path: string, body: any) {
-  return await fetch('http://127.0.0.1:8787' + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  return await fetch(`http://127.0.0.1:${TEST_PORT}` + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 }
 
 async function get(path: string) {
-  return await fetch('http://127.0.0.1:8787' + path);
+  return await fetch(`http://127.0.0.1:${TEST_PORT}` + path);
 }
 
 test('execute works', async () => {
