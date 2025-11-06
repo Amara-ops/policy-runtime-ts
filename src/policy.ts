@@ -44,8 +44,8 @@ export function validatePolicy(policy: unknown): Policy {
         type: 'object',
         additionalProperties: true,
         properties: {
-          max_outflow_h1: { type: 'object', additionalProperties: perDenomMap },
-          max_outflow_d1: { type: 'object', additionalProperties: perDenomMap },
+          max_outflow_h1: perDenomMap,
+          max_outflow_d1: perDenomMap,
           max_per_function_h1: { type: 'integer', minimum: 1 },
           max_calls_per_function_h1: { type: 'integer', minimum: 1 },
           max_calls_per_function_d1: { type: 'integer', minimum: 1 },
@@ -84,6 +84,5 @@ export function validatePolicy(policy: unknown): Policy {
 }
 
 export function normalizeAndValidatePolicy(policy: unknown): Policy {
-  // No normalization at load; we convert human strings at evaluation using registry decimals
   return validatePolicy(policy);
 }

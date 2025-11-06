@@ -9,18 +9,18 @@ const TEST_PORT = 8799;
 
 const policy1 = {
   allowlist: [ { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' } ],
-  caps: { max_outflow_h1: { BASE_USDC: '1000' } },
+  caps: { max_outflow_h1: { USDC: '1000' } },
   pause: false,
-  meta: { defaultDenomination: 'BASE_USDC' }
+  meta: { defaultDenomination: 'USDC' }
 };
 const policy2 = {
   allowlist: [ { chainId: 8453, to: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', selector: '0xa9059cbb' } ],
-  caps: { max_outflow_h1: { BASE_USDC: '2000' } },
+  caps: { max_outflow_h1: { USDC: '2000' } },
   pause: true,
-  meta: { defaultDenomination: 'BASE_USDC' }
+  meta: { defaultDenomination: 'USDC' }
 };
 
-let server: http.Server;
+let server: http.Server | undefined;
 
 beforeAll(async () => {
   const res = await startServer({ policy: policy1, policyHash: computePolicyHash(policy1), port: TEST_PORT, host: '127.0.0.1' });
@@ -29,7 +29,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>(resolve => server.close(() => resolve()))
+  if (!server) return;
+  await new Promise<void>(resolve => server!.close(() => resolve()))
 });
 
 async function post(path: string, body: any) {
