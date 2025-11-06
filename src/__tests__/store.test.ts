@@ -9,7 +9,7 @@ const HOUR = 3600_000;
 
 it('rolls over hourly buckets', async () => {
   const store = new MemoryCounterStore();
-  const key = 'k:BASE_USDC:h1';
+  const key = 'k:USDC:h1';
   const t0 = bucket(Date.now(), HOUR);
   await store.add(key, 100n, HOUR, t0 + 1_000);
   let w = await store.getWindow(key, HOUR, t0 + 1_000);
