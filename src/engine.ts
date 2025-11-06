@@ -8,27 +8,23 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function key(prefix: string, suffix: string) { return `${prefix}:${suffix}`; }
-function resolveCap(cap: CapAmount | undefined, symbol: string): bigint | undefined {
-  if (cap === undefined) return undefined;
-  if (typeof cap === 'string') return BigInt(cap);
-  const v = (cap as any)[symbol];
+
+function resolveCap(capMap: CapAmount | undefined, symbol: string, decimals: number): bigint | undefined {
+  if (!capMap) return undefined;
+  const v = (capMap as any)[symbol];
   if (v === undefined) return undefined;
-  if (typeof v === 'string') {
-    // could be already base units or a human string; try to detect by precision using registry decimals
-    return BigInt(v);
-  }
-  const nested = v as Record<string, string>;
-  const nv = nested[symbol];
-  return nv !== undefined ? BigInt(nv) : undefined;
+  if (typeof v !== 'string') return undefined;
+  if (/^[0-9]+$/.test(v)) return BigInt(v); // base units
+  if (/^[0-9]+(\.[0-9]+)?$/.test(v)) return humanToBaseUnits(v, decimals); // human string
+  return undefined;
 }
 
-function resolvePerTarget(map: Record<string, CapAmount> | undefined, to: string, selector: string, symbol: string): { limit?: bigint; keySuffix?: string; rawKey?: string } {
+function resolvePerTarget(map: Record<string, CapAmount> | undefined, to: string, selector: string, symbol: string, decimals: number): { limit?: bigint; keySuffix?: string; rawKey?: string } {
   if (!map) return {};
   const keySel = `${to}|${selector}`;
   const rawKey = (map[keySel] !== undefined) ? keySel : (map[to] !== undefined ? to : undefined);
   if (!rawKey) return {};
-  const raw = map[rawKey]!;
-  const lim = resolveCap(raw, symbol);
+  const lim = resolveCap(map[rawKey]!, symbol, decimals);
   if (lim === undefined) return {};
   const suffix = rawKey === keySel ? `toSel:${keySel}:${symbol}` : `to:${to}:${symbol}`;
   return { limit: lim, keySuffix: suffix, rawKey };
@@ -46,8 +42,7 @@ export class PolicyEngine {
   }
 
   private resolveAmountBaseUnits(intent: Intent, symbol: string): bigint {
-    const di = getDenominationInfo(symbol, this.policy.meta?.denominations, this.policy.meta?.tokens_registry_path);
-    // Prefer explicit base-unit amount if provided
+    const di = getDenominationInfo(symbol, undefined, this.policy.meta?.tokens_registry_path);
     if (intent.amount !== undefined) {
       const base = toBigIntDecimal(intent.amount);
       if (intent.amount_human !== undefined) {
@@ -65,7 +60,6 @@ export class PolicyEngine {
   async evaluate(intent: Intent, now: number = Date.now()): Promise<Decision> {
     const reasons: string[] = [];
 
-    // Early denies (paused / deadline / nonce gap / slippage / not allowlisted)
     if (this.policy.pause) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['PAUSED'] });
       return { action: 'deny', reasons: ['PAUSED'] };
@@ -92,12 +86,14 @@ export class PolicyEngine {
         return { action: 'deny', reasons: ['SLIPPAGE_EXCEEDED'] };
       }
     }
+
     if (!inAllowlist(this.policy.allowlist, intent.chainId, intent.to, intent.selector)) {
       await this.logDecision({ intent, now, decision: 'deny', reasons: ['NOT_ALLOWLISTED'] });
       return { action: 'deny', reasons: ['NOT_ALLOWLISTED'] };
     }
 
     const symbol = (intent.denomination || this.policy.meta?.defaultDenomination || 'USDC').toUpperCase();
+    const di = getDenominationInfo(symbol, undefined, this.policy.meta?.tokens_registry_path);
     let amt: bigint;
     try { amt = this.resolveAmountBaseUnits(intent, symbol); }
     catch (e: any) {
@@ -106,11 +102,10 @@ export class PolicyEngine {
       return { action: 'deny', reasons: [code] };
     }
 
-    // Caps (global per-symbol via CapAmount)
-    const h1 = resolveCap(this.policy.caps?.max_outflow_h1, symbol);
-    const d1 = resolveCap(this.policy.caps?.max_outflow_d1, symbol);
-    const perFnH1 = (this.policy.caps as any).max_calls_per_function_h1 ?? this.policy.caps?.max_per_function_h1;
-    const perFnD1 = (this.policy.caps as any).max_calls_per_function_d1;
+    const h1 = resolveCap(this.policy.caps?.max_outflow_h1, symbol, di.decimals);
+    const d1 = resolveCap(this.policy.caps?.max_outflow_d1, symbol, di.decimals);
+    const perFnH1 = (this.policy.caps as any)?.max_calls_per_function_h1 ?? this.policy.caps?.max_per_function_h1;
+    const perFnD1 = (this.policy.caps as any)?.max_calls_per_function_d1;
 
     let h1Used = 0n, d1Used = 0n;
     let perFnUsedH1 = 0, perFnUsedD1 = 0;
@@ -136,11 +131,10 @@ export class PolicyEngine {
       if (perFnUsedD1 > perFnD1) reasons.push('CAP_PER_FUNCTION_D1_EXCEEDED');
     }
 
-    // Per-target caps; values can be string or per-symbol map. Counters are per symbol.
     const perTarget = this.policy.caps?.per_target;
     const targetHeadroom: DecisionTargetHeadroom = {};
 
-    const h1Target = resolvePerTarget(perTarget?.h1, intent.to, intent.selector, symbol);
+    const h1Target = resolvePerTarget(perTarget?.h1 as any, intent.to, intent.selector, symbol, di.decimals);
     if (h1Target.limit !== undefined && h1Target.keySuffix) {
       const w = await this.store.getWindow(key(this.policyHash, `${h1Target.keySuffix}:h1`), HOUR_MS, now);
       const used = w.used + amt;
@@ -149,7 +143,7 @@ export class PolicyEngine {
       if (used > h1Target.limit) reasons.push('CAP_TARGET_H1_EXCEEDED');
     }
 
-    const d1Target = resolvePerTarget(perTarget?.d1, intent.to, intent.selector, symbol);
+    const d1Target = resolvePerTarget(perTarget?.d1 as any, intent.to, intent.selector, symbol, di.decimals);
     if (d1Target.limit !== undefined && d1Target.keySuffix) {
       const w = await this.store.getWindow(key(this.policyHash, `${d1Target.keySuffix}:d1`), DAY_MS, now);
       const used = w.used + amt;
@@ -176,7 +170,7 @@ export class PolicyEngine {
 
   async recordExecution(meta: { intent: Intent; txHash: string; amount?: string; amount_human?: string }, now: number = Date.now()): Promise<void> {
     const symbol = (meta.intent.denomination || this.policy.meta?.defaultDenomination || 'USDC').toUpperCase();
-    const di = getDenominationInfo(symbol, this.policy.meta?.denominations, this.policy.meta?.tokens_registry_path);
+    const di = getDenominationInfo(symbol, undefined, this.policy.meta?.tokens_registry_path);
     let amt: bigint;
     if (meta.amount !== undefined) {
       amt = toBigIntDecimal(meta.amount);
@@ -196,8 +190,8 @@ export class PolicyEngine {
     if (this.policy.caps?.max_outflow_d1) {
       await this.store.add(key(this.policyHash, `${symbol}:d1`), amt, DAY_MS, now);
     }
-    const perFnH1 = (this.policy.caps as any).max_calls_per_function_h1 ?? this.policy.caps?.max_per_function_h1;
-    const perFnD1 = (this.policy.caps as any).max_calls_per_function_d1;
+    const perFnH1 = (this.policy.caps as any)?.max_calls_per_function_h1 ?? this.policy.caps?.max_per_function_h1;
+    const perFnD1 = (this.policy.caps as any)?.max_calls_per_function_d1;
     if (perFnH1 !== undefined) {
       await this.store.add(key(this.policyHash, `fn:${meta.intent.selector}:h1`), 1n, HOUR_MS, now);
     }
@@ -205,11 +199,11 @@ export class PolicyEngine {
       await this.store.add(key(this.policyHash, `fn:${meta.intent.selector}:d1`), 1n, DAY_MS, now);
     }
     const perTarget = this.policy.caps?.per_target;
-    const h1Target = resolvePerTarget(perTarget?.h1, meta.intent.to, meta.intent.selector, symbol);
+    const h1Target = resolvePerTarget(perTarget?.h1 as any, meta.intent.to, meta.intent.selector, symbol, di.decimals);
     if (h1Target.keySuffix) {
       await this.store.add(key(this.policyHash, `${h1Target.keySuffix}:h1`), amt, HOUR_MS, now);
     }
-    const d1Target = resolvePerTarget(perTarget?.d1, meta.intent.to, meta.intent.selector, symbol);
+    const d1Target = resolvePerTarget(perTarget?.d1 as any, meta.intent.to, meta.intent.selector, symbol, di.decimals);
     if (d1Target.keySuffix) {
       await this.store.add(key(this.policyHash, `${d1Target.keySuffix}:d1`), amt, DAY_MS, now);
     }

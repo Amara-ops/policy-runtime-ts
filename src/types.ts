@@ -1,4 +1,4 @@
-export type Denomination = string; // v0.3.5: symbol-only keys (e.g., USDC)
+export type Denomination = string; // symbol-only keys (e.g., USDC, ETH)
 
 export interface AllowEntry {
   chainId: number;
@@ -6,28 +6,29 @@ export interface AllowEntry {
   selector: string; // 0x + 4 bytes
 }
 
-export type CapAmount = string | Record<string, string>; // string = global; record = per-denomination (by symbol)
+// CapAmount: per-denomination map of human decimal strings or base-unit strings
+export type CapAmount = Record<string, string>;
 
 export interface CapsConfig {
-  max_outflow_h1?: CapAmount; // bigint base units, or per-symbol map of human strings (normalized at load)
+  max_outflow_h1?: CapAmount; // per-symbol map of human strings (converted at evaluation)
   max_outflow_d1?: CapAmount;
-  // Aliases: accept new names while keeping old fields for compatibility
+  // Function call count caps
   max_per_function_h1?: number; // DEPRECATED alias of max_calls_per_function_h1
   max_calls_per_function_h1?: number;
   max_calls_per_function_d1?: number;
   per_target?: {
-    h1?: Record<string, CapAmount>; // key = to or to|selector; value string (base) or per-symbol human map
+    h1?: Record<string, CapAmount>; // key = to or to|selector; value = per-symbol human strings
     d1?: Record<string, CapAmount>;
   };
 }
 
 export interface PolicyMeta {
   schemaVersion?: string;
-  // v0.3.5: tokens registry path (preferred), or env TOKENS_CONFIG_PATH
+  // tokens registry path (preferred), or env TOKENS_CONFIG_PATH
   tokens_registry_path?: string;
-  // Deprecated fields (kept for back-compat; linter warns)
+  // Optional legacy fallback
   denominations?: Record<string, { decimals: number; chainId?: number; address?: string }>;
-  defaultDenomination?: string; // no longer needed; intents should specify symbol; fallback used if present
+  defaultDenomination?: string;
   nonce_max_gap?: number;
   slippage_max_bps?: number;
 }
